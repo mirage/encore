@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(library
+ ((name Encore)
+  (public_name encore)
+   (flags (:standard -w -32))
+  (libraries (angstrom fmt ocplib-endian))
+))
