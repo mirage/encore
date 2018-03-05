@@ -1,3 +1,5 @@
+let () = Printexc.record_backtrace true
+
 let to_string v =
   let encoder = Git.Minienc.create 0x100 in
   let buffer = Buffer.create 16 in
@@ -345,61 +347,68 @@ let main root =
   let module A = Make(Proxy_angstrom.Impl) in
   let module C = Make(Proxy_condorcet.Impl) in
 
+  let open Lwt.Infix in
   let ( >>!= ) = Lwt_result.bind in
 
   Git.create ~root () >>!= fun t ->
-  Git.contents t >>!= fun l ->
-  List.iter
-    (function
-      | hash, t ->
-        let raw = to_string t in
+  Git.Ref.graph t >>!= fun map ->
+  let master = Git.Reference.Map.find Git.Reference.master map in
+  Git.iter t
+    (fun hash t ->
+       let raw = to_string t in
 
-        (match Angstrom.parse_string A.git raw with
-         | Ok t' ->
-           (try
-              let raw' = Condorcet.to_string C.git t' in
+       (match Angstrom.parse_string A.git raw with
+        | Ok t' ->
+          (try
+             let raw' = Condorcet.to_string C.git t' in
 
-              if not (String.equal raw raw')
-              then begin
-                ret := false;
+             if not (String.equal raw raw')
+             then begin
+               ret := false;
 
-                Fmt.(pf stdout) "value source: %a.\n%!" Git.Value.pp t;
-                Fmt.(pf stdout) "value result: %a.\n%!" Git.Value.pp t';
+               Fmt.(pf stdout) "value source: %a.\n%!" Git.Value.pp t;
+               Fmt.(pf stdout) "value result: %a.\n%!" Git.Value.pp t';
 
-                Fmt.(pf stdout) "source: %a.\n%!" (Fmt.hvbox pp_string) raw;
-                Fmt.(pf stdout) "result: %a.\n%!" (Fmt.hvbox pp_string) raw';
-              end;
+               Fmt.(pf stdout) "source: %a.\n%!" (Fmt.hvbox pp_string) raw;
+               Fmt.(pf stdout) "result: %a.\n%!" (Fmt.hvbox pp_string) raw';
+             end;
 
-              Fmt.(pf stdout) "%a: hash equal: %b.\n%!" Git.Hash.pp hash Git.(Hash.equal hash (Value.digest t'))
-            with
-            | Condorcet.Fail err ->
-              ret := false;
-              Fmt.(pf stderr) "Got a condorcet error (%s) (%a): %a.\n%!"
-                err
-                Git.Hash.pp hash
-                (Fmt.hvbox pp_string) raw
-            | Bijection.Bijection (a, b) ->
-              ret := false;
-              Fmt.(pf stderr) "Got a bijection error from %s to %s (%a): %a.\n%!"
-                a b
-                Git.Hash.pp hash
-                (Fmt.hvbox pp_string) raw)
-         | Error err ->
-           ret := false;
-           Fmt.(pf stderr) "Got an error (%a): %s.\n%!"
-             Git.Hash.pp (Git.Value.digest t) err
-         | exception Bijection.Bijection (a, b) ->
-           ret := false;
-           Fmt.(pf stderr) "Got a bijection error from %s to %s (%a): %a.\n%!"
-             a b
-             Git.Hash.pp hash
-             (Fmt.hvbox pp_string) raw
-         | exception Condorcet.Fail err ->
-           ret := false;
-           Fmt.(pf stderr) "Got a condorcet error (%s) (%a): %a.\n%!"
-             err
-             Git.Hash.pp hash
-             (Fmt.hvbox pp_string) raw)) l;
+             Fmt.(pf stdout) "%a: hash equal: %b.\n%!" Git.Hash.pp hash Git.(Hash.equal hash (Value.digest t'));
+             Lwt.return ()
+           with
+           | Condorcet.Fail err ->
+             ret := false;
+             Fmt.(pf stderr) "Got a condorcet error (%s) (%a): %a.\n%!"
+               err
+               Git.Hash.pp hash
+               (Fmt.hvbox pp_string) raw;
+             Lwt.return ()
+           | Bijection.Bijection (a, b) ->
+             ret := false;
+             Fmt.(pf stderr) "Got a bijection error from %s to %s (%a): %a.\n%!"
+               a b
+               Git.Hash.pp hash
+               (Fmt.hvbox pp_string) raw;
+             Lwt.return ());
+        | Error err ->
+          ret := false;
+          Fmt.(pf stderr) "Got an error (%a): %s.\n%!"
+            Git.Hash.pp (Git.Value.digest t) err;
+          Lwt.return ();
+        | exception Bijection.Bijection (a, b) ->
+          ret := false;
+          Fmt.(pf stderr) "Got a bijection error from %s to %s (%a): %a.\n%!"
+            a b
+            Git.Hash.pp hash
+            (Fmt.hvbox pp_string) raw;
+          Lwt.return ()
+        | exception Condorcet.Fail err ->
+          ret := false;
+          Fmt.(pf stderr) "Got a condorcet error (%s) (%a): %a.\n%!"
+            err
+            Git.Hash.pp hash
+            (Fmt.hvbox pp_string) raw;
+          Lwt.return ())) master >>= fun () ->
   Lwt.return (Ok ())
 
 let () =
