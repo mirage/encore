@@ -6,4 +6,4 @@ script: bash -ex .travis-opam.sh
 sudo: true
 env:
   matrix:
-  - PACKAGE="encore" PINS="git:https://github.com/dinosaure/ocaml-git.git#add-iter2 git-http:https://github.com/dinosaure/ocaml-git.git#add-iter2 git-unix:https://github.com/dinosaure/ocaml-git.git#add-iter2" OCAML_VERSION=4.06 TESTS=true
+  - PACKAGE="encore" PINS="git:https://github.com/dinosaure/ocaml-git.git#encore git-http:https://github.com/dinosaure/ocaml-git.git#encore git-unix:https://github.com/dinosaure/ocaml-git.git#encore" OCAML_VERSION=4.06 TESTS=true
