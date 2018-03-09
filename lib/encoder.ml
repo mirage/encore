@@ -2,35 +2,35 @@ type vec =
   { off : int option
   ; len : int option }
 
-type 'a state = 'a Lavoisier.state
-type encoder = Lavoisier.encoder
-type bigstring = Lavoisier.bigstring
-type iovecs = Lavoisier.IOVec.t list
+type 'a state = 'a Lole.state
+type encoder = Lole.encoder
+type bigstring = Lole.bigstring
+type iovecs = Lole.IOVec.t list
 
 type -'a t =
   { run : 'r. (encoder -> 'r state) -> encoder -> 'a -> 'r state }
 type -'a s =
   { sub : 'r. (encoder -> 'r state) -> encoder -> ?off:int -> ?len:int -> 'a -> 'r state }
 
-let char    : char  t = { run = fun k e v -> Lavoisier.write_char v k e }
-let int8    : int   t = { run = fun k e v -> Lavoisier.write_uint8 v k e }
-let beint16 : int   t = { run = fun k e v -> Lavoisier.BE.write_uint16 v k e }
-let beint32 : int32 t = { run = fun k e v -> Lavoisier.BE.write_uint32 v k e }
-let beint64 : int64 t = { run = fun k e v -> Lavoisier.BE.write_uint64 v k e }
-let leint16 : int   t = { run = fun k e v -> Lavoisier.LE.write_uint16 v k e }
-let leint32 : int32 t = { run = fun k e v -> Lavoisier.LE.write_uint32 v k e }
-let leint64 : int64 t = { run = fun k e v -> Lavoisier.LE.write_uint64 v k e }
+let char    : char  t = { run = fun k e v -> Lole.write_char v k e }
+let int8    : int   t = { run = fun k e v -> Lole.write_uint8 v k e }
+let beint16 : int   t = { run = fun k e v -> Lole.BE.write_uint16 v k e }
+let beint32 : int32 t = { run = fun k e v -> Lole.BE.write_uint32 v k e }
+let beint64 : int64 t = { run = fun k e v -> Lole.BE.write_uint64 v k e }
+let leint16 : int   t = { run = fun k e v -> Lole.LE.write_uint16 v k e }
+let leint32 : int32 t = { run = fun k e v -> Lole.LE.write_uint32 v k e }
+let leint64 : int64 t = { run = fun k e v -> Lole.LE.write_uint64 v k e }
 
 let bool : bool t = { run = fun k e -> function
     | true  -> char.run k e '1'
     | false -> char.run k e '0' }
 
-let substring    : string    s = { sub = fun k e ?off ?len v -> Lavoisier.write_string ?off ?len v k e }
-let subbytes     : bytes     s = { sub = fun k e ?off ?len v -> Lavoisier.write_bytes ?off ?len v k e }
-let subbigstring : bigstring s = { sub = fun k e ?off ?len v -> Lavoisier.write_bigstring ?off ?len v k e }
+let substring    : string    s = { sub = fun k e ?off ?len v -> Lole.write_string ?off ?len v k e }
+let subbytes     : bytes     s = { sub = fun k e ?off ?len v -> Lole.write_bytes ?off ?len v k e }
+let subbigstring : bigstring s = { sub = fun k e ?off ?len v -> Lole.write_bigstring ?off ?len v k e }
 
 let blitter length blit : _ s = { sub = fun k e ?off ?len v ->
-    Lavoisier.write k ~blit ~length ?off ?len v e }
+    Lole.write k ~blit ~length ?off ?len v e }
 
 let whole (a : 'v s) : 'v t = { run = fun k e v -> a.sub ?off:None ?len:None k e v }
 let sub (a : 'v s) : (vec * 'v) t = { run = fun k e ({ off; len; }, v) -> a.sub ?off ?len k e v }
@@ -134,7 +134,7 @@ let r_brace = string <!> "}"
 let from : ('a -> 'u t) -> 'a t = fun f -> { run = fun k e v -> (f v).run k e v }
 
 let newline = int8 <!> 0x0a
-let flush a = { run = fun k e v -> a.run (fun e -> Lavoisier.flush k e) e v }
+let flush a = { run = fun k e v -> a.run (fun e -> Lole.flush k e) e v }
 
 let bracks a = l_brack *> a <* r_brack
 let parens a = l_paren *> a <* r_paren
@@ -149,15 +149,15 @@ let keval
   : 'v 'r. (encoder -> 'r state) -> (iovecs -> int) -> encoder -> 'v t -> 'v -> 'r
   = fun k w e t v ->
     let rec go = function
-      | Lavoisier.End v -> v
-      | Lavoisier.Continue { continue; encoder; } ->
+      | Lole.End v -> v
+      | Lole.Continue { continue; encoder; } ->
         continue encoder |> go
-      | Lavoisier.Flush { continue; iovecs; } ->
+      | Lole.Flush { continue; iovecs; } ->
         let len = w iovecs in
         continue len |> go in
     t.run k e v |> go
 
-let eval w e t v = keval (fun _e -> Lavoisier.End ()) w e (flush t) v
+let eval w e t v = keval (fun _e -> Lole.End ()) w e (flush t) v
 
 let to_string : type a. a t -> a -> string
   = fun t v ->
@@ -165,14 +165,14 @@ let to_string : type a. a t -> a -> string
     let writer l =
       List.iter
         (function
-          | { Lavoisier.IOVec.buffer = Lavoisier.Buffer.String s; off; len; } ->
+          | { Lole.IOVec.buffer = Lole.Buffer.String s; off; len; } ->
             Buffer.add_substring buf s off len
-          | { Lavoisier.IOVec.buffer = Lavoisier.Buffer.Bytes s; off; len; } ->
+          | { Lole.IOVec.buffer = Lole.Buffer.Bytes s; off; len; } ->
             Buffer.add_subbytes buf s off len
-          | { Lavoisier.IOVec.buffer = Lavoisier.Buffer.Bigstring s; off; len; } ->
+          | { Lole.IOVec.buffer = Lole.Buffer.Bigstring s; off; len; } ->
             for i = 0 to len - 1
             do Buffer.add_char buf (Bigarray.Array1.get s (off + i)) done)
         l;
-      Lavoisier.IOVec.lengthv l in
-    eval writer (Lavoisier.create 0x100) t v;
+      Lole.IOVec.lengthv l in
+    eval writer (Lole.create 0x100) t v;
     Buffer.contents buf

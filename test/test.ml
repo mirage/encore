@@ -254,8 +254,8 @@ struct
        <*> date)
   end
 
-  module Decoder = Meta(Proxy_angstrom.Impl)
-  module Encoder = Meta(Proxy_condorcet.Impl)
+  module Decoder = Meta(Proxy_decoder.Impl)
+  module Encoder = Meta(Proxy_encoder.Impl)
 end
 
 module Make (M: Meta.S) =
@@ -303,7 +303,7 @@ struct
       ~fwd:(fun s -> match Angstrom.parse_string User.Decoder.user s with
           | Ok v -> v
           | Error _ -> Bijection.fail "string" "user")
-      ~bwd:(Condorcet.to_string User.Encoder.user)
+      ~bwd:(Encoder.to_string User.Encoder.user)
 
   let tag =
     binding ~key:"object" Iso.hex
@@ -345,8 +345,8 @@ let str = Alcotest.testable pp_string String.equal
 
 let store_err x = `Store x
 
-module A = Make(Proxy_angstrom.Impl)
-module C = Make(Proxy_condorcet.Impl)
+module A = Make(Proxy_decoder.Impl)
+module C = Make(Proxy_encoder.Impl)
 
 let read_parse_and_write t hash =
   let ( >>|= ) = Lwt_result.bind in
@@ -357,7 +357,7 @@ let read_parse_and_write t hash =
 
   match Angstrom.parse_string A.git raw with
   | Ok t' ->
-     let raw' = Condorcet.to_string C.git t' in
+     let raw' = Encoder.to_string C.git t' in
 
      Alcotest.(check str) (Fmt.strf "raw: %a" Git.Hash.pp hash) raw raw';
      Alcotest.(check (module Git.Hash)) (Fmt.strf "hash: %a" Git.Hash.pp hash) hash (Git.Value.digest t');
@@ -367,8 +367,8 @@ let read_parse_and_write t hash =
   | Error err -> Lwt.return (Error (`Angstrom (hash, err)))
 
 let run t : (unit Alcotest.test_case list, Git.error) result Lwt.t =
-  let module A = Make(Proxy_angstrom.Impl) in
-  let module C = Make(Proxy_condorcet.Impl) in
+  let module A = Make(Proxy_decoder.Impl) in
+  let module C = Make(Proxy_encoder.Impl) in
 
   let open Lwt.Infix in
   let ( >>|= ) = Lwt_result.bind in

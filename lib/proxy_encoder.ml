@@ -1,60 +1,60 @@
-module Impl : Meta.S with type 'a t = 'a Condorcet.t =
+module Impl : Meta.S with type 'a t = 'a Encoder.t =
 struct
-  type 'a t = 'a Condorcet.t
+  type 'a t = 'a Encoder.t
 
   let ( <$> ) (bijection : ('a, 'b) Bijection.texn) p =
-    let open Condorcet in
+    let open Encoder in
     bijection.Bijection.of_ <$> p
 
   let ( <*> ) pa pb =
-    let open Condorcet in
+    let open Encoder in
     pa <*> pb
 
   let ( <|> ) pu pv =
-    let open Condorcet in
+    let open Encoder in
     pu <|> pv
 
   let ( *> ) pu pe =
-    let open Condorcet in
+    let open Encoder in
     pu *> pe
 
   let ( <* ) pe pu =
-    let open Condorcet in
+    let open Encoder in
     pe <* pu
 
   let ( <$ ) pu bijection =
-    let open Condorcet in
+    let open Encoder in
     bijection.Bijection.to_ <$> pu
 
   let ( $> ) pe bijection =
-    let open Condorcet in
+    let open Encoder in
     bijection.Bijection.of_ <$> pe
 
-  let fix = Condorcet.fix
+  let fix = Encoder.fix
 
-  let char = Condorcet.char
-  let satisfy = Condorcet.satisfy
-  let between = Condorcet.between
-  let option = Condorcet.option
-  let while1 = Condorcet.while1
-  let while0 = Condorcet.while0
-  let take = Condorcet.take
-  let list = Condorcet.list
+  let char = Encoder.char
+  let satisfy = Encoder.satisfy
+  let between = Encoder.between
+  let option = Encoder.option
+  let while1 = Encoder.while1
+  let while0 = Encoder.while0
+  let take = Encoder.take
+  let list = Encoder.list
   let string e =
     Bijection.make_exn ~tag:(e, "unit")
       ~fwd:(fun s ->
           if String.equal s e then s else Bijection.fail s e)
       ~bwd:(fun s ->
           if String.equal s e then s else Bijection.fail s e)
-    <$> Condorcet.string
-  let nop = Condorcet.nop
-  let bwhile1 = Condorcet.bwhile1
-  let bwhile0 = Condorcet.bwhile0
+    <$> Encoder.string
+  let nop = Encoder.nop
+  let bwhile1 = Encoder.bwhile1
+  let bwhile0 = Encoder.bwhile0
 
   module Option =
   struct
     let (<$>) bijection p =
-      let open Condorcet in
+      let open Encoder in
       using p
         (fun x -> match bijection.Bijection.of_ x with
            | Some x -> x
@@ -63,7 +63,7 @@ struct
     let ( $>)
       : unit t -> (unit, 'a) Bijection.topt -> 'a t
       = fun pe bijection ->
-      let open Condorcet in
+      let open Encoder in
       using pe
         (fun x ->
            let open Bijection in
@@ -74,7 +74,7 @@ struct
     let (<$ )
       : 'a t -> (unit, 'a) Bijection.topt -> unit t
       = fun pu bijection ->
-      let open Condorcet in
+      let open Encoder in
       using pu
         (fun x ->
            let open Bijection in

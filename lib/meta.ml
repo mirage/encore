@@ -23,8 +23,8 @@ sig
   val take    : int -> string t
   val list    : ?sep:unit t -> 'a t -> 'a list t
   val string  : string -> string t
-  val bwhile0 : (char -> bool) -> Condorcet.bigstring t
-  val bwhile1 : (char -> bool) -> Condorcet.bigstring t
+  val bwhile0 : (char -> bool) -> Encoder.bigstring t
+  val bwhile1 : (char -> bool) -> Encoder.bigstring t
   val nop     : unit t
 
   module Option:

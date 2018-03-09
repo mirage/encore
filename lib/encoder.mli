@@ -2,10 +2,10 @@ type vec =
   { off : int option
   ; len : int option }
 
-type 'a state  = 'a Lavoisier.state
-type encoder   = Lavoisier.encoder
-type bigstring = Lavoisier.bigstring
-type iovecs    = Lavoisier.IOVec.t list
+type 'a state  = 'a Lole.state
+type encoder   = Lole.encoder
+type bigstring = Lole.bigstring
+type iovecs    = Lole.IOVec.t list
 
 type -'a t
 type -'a s

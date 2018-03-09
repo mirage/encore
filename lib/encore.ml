@@ -4,8 +4,8 @@ module Bijection = Bijection
 
 module FQueue = FQueue
 
-module Lavoisier = Lavoisier
-module Condorcet = Condorcet
+module Lole = Lole
+module Encoder = Encoder
 
-module Proxy_angstrom = Proxy_angstrom
-module Proxy_condorcet = Proxy_condorcet
+module Proxy_decoder = Proxy_decoder
+module Proxy_encoder = Proxy_encoder
