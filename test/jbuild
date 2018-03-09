@@ -1,9 +1,9 @@
 (executables
  ((names (test))
-  (libraries (alcotest git-unix encore))
+  (libraries (alcotest alcotest-lwt git-unix encore))
 ))
 
 (alias
 ((name    runtest)
   (deps    (test.exe))
-  (action  (run ${<} ${SCOPE_ROOT}/../../))))
+  (action  (run ${<}))))

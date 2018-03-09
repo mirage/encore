@@ -37,6 +37,7 @@ end
 module Minienc = Git.Minienc
 module G = Git
 module Git = Git_unix.FS
+module Http = Git_unix.HTTP(Git)
 
 open Encore
 
@@ -340,79 +341,78 @@ struct
 end
 
 let pp_string = Minienc.pp_scalar ~get:String.get ~length:String.length
+let str = Alcotest.testable pp_string String.equal
 
-let ret = ref true
+let store_err x = `Store x
 
-let main root =
+module A = Make(Proxy_angstrom.Impl)
+module C = Make(Proxy_condorcet.Impl)
+
+let read_parse_and_write t hash =
+  let ( >>|= ) = Lwt_result.bind in
+  let ( >>!= ) v f = Lwt_result.map_err f v in
+
+  Git.read t hash >>!= store_err >>|= fun t ->
+  let raw = to_string t in
+
+  match Angstrom.parse_string A.git raw with
+  | Ok t' ->
+     let raw' = Condorcet.to_string C.git t' in
+
+     Alcotest.(check str) (Fmt.strf "raw: %a" Git.Hash.pp hash) raw raw';
+     Alcotest.(check (module Git.Hash)) (Fmt.strf "hash: %a" Git.Hash.pp hash) hash (Git.Value.digest t');
+     Alcotest.(check (module Git.Value)) (Fmt.strf "value: %a" Git.Hash.pp hash) t t';
+
+     Lwt.return (Ok ())
+  | Error err -> Lwt.return (Error (`Angstrom (hash, err)))
+
+let run t : (unit Alcotest.test_case list, Git.error) result Lwt.t =
   let module A = Make(Proxy_angstrom.Impl) in
   let module C = Make(Proxy_condorcet.Impl) in
 
   let open Lwt.Infix in
-  let ( >>!= ) = Lwt_result.bind in
+  let ( >>|= ) = Lwt_result.bind in
 
-  Git.create ~root () >>!= fun t ->
-  Git.Ref.graph t >>!= fun map ->
+  Git.Ref.graph t >>|= fun map ->
   let master = Git.Reference.Map.find Git.Reference.master map in
-  Git.iter t
-    (fun hash t ->
-       let raw = to_string t in
+  Git.fold t (fun hashes ?name:_ ~length:_ hash _ -> Lwt.return (hash :: hashes)) ~path:(Fpath.v "/") [] master >>= fun hashes ->
+  Lwt_list.map_p
+    (fun hash ->
+      Alcotest_lwt.test_case
+        (Fmt.strf "%a" Git.Hash.pp hash)
+        `Quick
+        (fun _switch () -> read_parse_and_write t hash >>= function
+                           | Ok () -> Lwt.return ()
+                           | Error (`Angstrom (hash, err)) ->
+                              Alcotest.failf "Retrieve an error on %a: %s" Git.Hash.pp hash err
+                           | Error (`Store err) ->
+                              Alcotest.failf "Retrieve a store error: %a" Git.pp_error err)
+      |> Lwt.return)
+    hashes >>= fun tests -> Lwt.return (Ok tests)
 
-       (match Angstrom.parse_string A.git raw with
-        | Ok t' ->
-          (try
-             let raw' = Condorcet.to_string C.git t' in
+let pwd = Unix.getcwd ()
+let repository = Uri.of_string "https://github.com/dinosaure/encore.git"
 
-             if not (String.equal raw raw')
-             then begin
-               ret := false;
+let clone_and_make () =
+  let ( >>!= ) v f = Lwt_result.map_err f v in
+  let ( >>|= ) = Lwt_result.bind in
 
-               Fmt.(pf stdout) "value source: %a.\n%!" Git.Value.pp t;
-               Fmt.(pf stdout) "value result: %a.\n%!" Git.Value.pp t';
+  Git.create ~root:Fpath.(v pwd / "repository") () >>!= store_err >>|= fun t ->
+  Http.clone t
+    ~reference:Git.Reference.(master, master) repository
+  >>|= fun () -> Fmt.(pf stdout) "Repository %a cloned at %a.\n%!" Uri.pp_hum repository Fpath.pp Fpath.(v pwd / "repository"); run t >>!= store_err
 
-               Fmt.(pf stdout) "source: %a.\n%!" (Fmt.hvbox pp_string) raw;
-               Fmt.(pf stdout) "result: %a.\n%!" (Fmt.hvbox pp_string) raw';
-             end;
 
-             Fmt.(pf stdout) "%a: hash equal: %b.\n%!" Git.Hash.pp hash Git.(Hash.equal hash (Value.digest t'));
-             Lwt.return ()
-           with
-           | Condorcet.Fail err ->
-             ret := false;
-             Fmt.(pf stderr) "Got a condorcet error (%s) (%a): %a.\n%!"
-               err
-               Git.Hash.pp hash
-               (Fmt.hvbox pp_string) raw;
-             Lwt.return ()
-           | Bijection.Bijection (a, b) ->
-             ret := false;
-             Fmt.(pf stderr) "Got a bijection error from %s to %s (%a): %a.\n%!"
-               a b
-               Git.Hash.pp hash
-               (Fmt.hvbox pp_string) raw;
-             Lwt.return ());
-        | Error err ->
-          ret := false;
-          Fmt.(pf stderr) "Got an error (%a): %s.\n%!"
-            Git.Hash.pp (Git.Value.digest t) err;
-          Lwt.return ();
-        | exception Bijection.Bijection (a, b) ->
-          ret := false;
-          Fmt.(pf stderr) "Got a bijection error from %s to %s (%a): %a.\n%!"
-            a b
-            Git.Hash.pp hash
-            (Fmt.hvbox pp_string) raw;
-          Lwt.return ()
-        | exception Condorcet.Fail err ->
-          ret := false;
-          Fmt.(pf stderr) "Got a condorcet error (%s) (%a): %a.\n%!"
-            err
-            Git.Hash.pp hash
-            (Fmt.hvbox pp_string) raw;
-          Lwt.return ())) master >>= fun () ->
-  Lwt.return (Ok ())
+let main () =
+  let open Lwt.Infix in
 
-let () =
-  (match Lwt_main.run (main (Fpath.v Sys.argv.(1))) with
-   | Ok () -> ()
-   | Error err -> Fmt.(pf stderr) "Got a git error: %a.\n%!" Git.pp_error err);
-  if !ret then exit 0 else exit 1
+  clone_and_make () >>= function
+  | Ok tests ->
+     Alcotest.run "isomorpism" [ "encore", tests ];
+     Lwt.return ()
+  | Error err ->
+     Fmt.(pf stderr) "Retrieve an error: %a.\n%!" Http.pp_error err;
+     Lwt.return ()
+
+
+let () = Lwt_main.run (main ())
