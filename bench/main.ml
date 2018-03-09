@@ -355,7 +355,7 @@ let have root () =
 
       match Angstrom.parse_string A.git raw with
       | Ok t' ->
-         let raw' = Condorcet.to_string C.git t' in
+         let _raw' = Condorcet.to_string C.git t' in
          Lwt.return ()
       | Error _ -> assert false)
     master >>= fun () -> Lwt.return (Ok ())
@@ -373,7 +373,7 @@ let expect root () =
 
         match Angstrom.parse_string Git.Value.A.decoder raw with
         | Ok t' ->
-          let raw' = to_string t' in
+          let _raw' = to_string t' in
           Lwt.return ()
         | Error _ -> assert false)
     master >>= fun () -> Lwt.return (Ok ())
