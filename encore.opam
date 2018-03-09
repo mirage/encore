@@ -19,6 +19,7 @@ depends: [
   "angstrom" {> "0.6.0"}
   "ocplib-endian"
   "fmt"
+  "conf-openssl" {test}
   "git-unix" {test}
   "alcotest" {test}
   "alcotest-lwt" {test}
