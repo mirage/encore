@@ -1,6 +1,9 @@
 Encore
 ======
 
+[![Build Status](https://travis-ci.org/dinosaure/encore.svg?branch=master)](https://travis-ci.org/dinosure/encore)
+![MirageOS](https://img.shields.io/badge/MirageOS-%F0%9F%90%AB-red.svg)
+
 Encore is a little library to provide an interface to generate an
 [Angstrom](https://github.com/inhabitedtype/angstrom.git)'s decoder and a
 Condorcet's encoder from a shared description. The goal is specifically for
