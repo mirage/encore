@@ -253,8 +253,8 @@ struct
        <*> date)
   end
 
-  module Decoder = Meta(Proxy_angstrom.Impl)
-  module Encoder = Meta(Proxy_condorcet.Impl)
+  module Decoder = Meta(Proxy_decoder.Impl)
+  module Encoder = Meta(Proxy_encoder.Impl)
 end
 
 module Make (M: Meta.S) =
@@ -302,7 +302,7 @@ struct
       ~fwd:(fun s -> match Angstrom.parse_string User.Decoder.user s with
           | Ok v -> v
           | Error _ -> Bijection.fail "string" "user")
-      ~bwd:(Condorcet.to_string User.Encoder.user)
+      ~bwd:(Encoder.to_string User.Encoder.user)
 
   let tag =
     binding ~key:"object" Iso.hex
@@ -340,8 +340,8 @@ struct
 end
 
 let have root () =
-  let module A = Make(Proxy_angstrom.Impl) in
-  let module C = Make(Proxy_condorcet.Impl) in
+  let module A = Make(Proxy_decoder.Impl) in
+  let module C = Make(Proxy_encoder.Impl) in
 
   let open Lwt.Infix in
   let ( >>|= ) = Lwt_result.bind in
@@ -355,7 +355,7 @@ let have root () =
 
       match Angstrom.parse_string A.git raw with
       | Ok t' ->
-         let _raw' = Condorcet.to_string C.git t' in
+         let _raw' = Encoder.to_string C.git t' in
          Lwt.return ()
       | Error _ -> assert false)
     master >>= fun () -> Lwt.return (Ok ())
