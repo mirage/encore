@@ -9,7 +9,7 @@ struct
 
      try let x = bijection.Bijection.to_ x in return x
      with
-     | Bijection.Bijection (to_, of_) ->
+     | Bijection.Exn.Bijection (to_, of_) ->
        Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_))
 
   let ( <*> ) pa pb =
@@ -36,7 +36,7 @@ struct
       let open Bijection in
       match bijection.to_ (), bijection.kd with
       | x, E -> return x
-      | exception Bijection.Bijection (to_, of_) ->
+      | exception Bijection.Exn.Bijection (to_, of_) ->
         Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
 
   let ( <$ )
@@ -47,12 +47,14 @@ struct
       let open Bijection in
       match bijection.of_ x, bijection.kd with
       | x, E -> return x
-      | exception Bijection.Bijection (to_, of_) ->
+      | exception Bijection.Exn.Bijection (to_, of_) ->
         Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
 
   let fix = Angstrom.fix
-
   let char = Angstrom.any_char
+  let skip = Angstrom.skip_many
+  let pure ~compare:_ v = Angstrom.return v
+  let fail err = Angstrom.fail err
   let satisfy = Angstrom.satisfy
   let between p s a = p *> a <* s
   let option t =

@@ -38,6 +38,7 @@ val option: 'a t -> 'a option t
 val compose: 'a t -> 'b t -> ('a * 'b) t
 val using: 'a t -> ('b -> 'a) -> 'b t
 val const: 'a t -> 'a -> unit t
+val pure: compare:('a -> 'a -> int) -> 'a -> 'a t
 val nop: 'a t
 val fail: string -> 'a t
 val fix: ('a t -> 'a t) -> 'a t

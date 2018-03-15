@@ -73,13 +73,16 @@ let ( <!> ) = const
 
 exception Fail of string
 
+let pure ~compare v =
+  { run = fun k e v' -> if compare v v' = 0 then k e else raise (Fail "fail at the pure operator") }
+
 let fail s =
   { run = fun _k _e _v -> raise (Fail s) }
 
 let ( <|> ) pu pv =
   { run = fun k e v ->
         try pu.run k e v
-        with Fail _ | Bijection.Bijection (_, _) -> pv.run k e v }
+        with Fail _ | Bijection.Exn.Bijection (_, _) -> pv.run k e v }
 
 let prefix p r =
   { run = fun k e v -> p.run (fun e -> r.run k e v) e () }

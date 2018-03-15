@@ -42,7 +42,7 @@ module Http = Git_unix.HTTP(Git)
 open Encore
 
 let safe_exn tag f x =
-  try f x with _ -> Bijection.fail (fst tag) (snd tag)
+  try f x with _ -> Bijection.Exn.fail (fst tag) (snd tag)
 
 let flip (a, b) = (b ,a)
 
@@ -83,13 +83,13 @@ struct
     Bijection.make_exn ~tag
       ~fwd:(fun l -> Git.Value.Tree (Git.Value.Tree.of_list l))
       ~bwd:(function Git.Value.Tree l -> Git.Value.Tree.to_list l
-                   | _ -> Bijection.fail "tree" "entry list")
+                   | _ -> Bijection.Exn.fail "tree" "entry list")
 
   let chare chr =
-    Bijection.element ~tag:"char" ~compare:Char.equal chr
+    Bijection.Exn.element ~tag:"char" ~compare:Char.equal chr
 
   let stringe str =
-    Bijection.element ~tag:"string" ~compare:String.equal str
+    Bijection.Exn.element ~tag:"string" ~compare:String.equal str
 
   let cstruct =
     Bijection.make_exn
@@ -107,7 +107,7 @@ struct
                    | "commit" -> `Commit
                    | "tag"    -> `Tag
                    | "blob"   -> `Blob
-                   | s -> Bijection.fail s "kind")
+                   | s -> Bijection.Exn.fail s "kind")
       ~bwd:(function `Tree   -> "tree"
                    | `Commit -> "commit"
                    | `Tag    -> "tag"
@@ -129,7 +129,7 @@ struct
       ~tag:("cstruct", "blob")
       ~fwd:(fun x -> Git.Value.Blob (Git.Value.Blob.of_cstruct x))
       ~bwd:(function Git.Value.Blob b -> Git.Value.Blob.to_cstruct b
-                   | _ -> Bijection.fail "blob" "cstruct")
+                   | _ -> Bijection.Exn.fail "blob" "cstruct")
 
   let user =
     Bijection.make_exn
@@ -165,7 +165,7 @@ struct
              ("tag", Git.Value.Tag.tag tag),
              tagger tag,
              Git.Value.Tag.message tag)
-          | _ -> Bijection.fail "not tag" "value")
+          | _ -> Bijection.Exn.fail "not tag" "value")
 
   let commit =
     Bijection.make_exn
@@ -181,7 +181,7 @@ struct
              ("committer", Git.Value.Commit.committer c),
              Git.Value.Commit.extra c,
              Git.Value.Commit.message c)
-          | _ -> Bijection.fail "commit" "value")
+          | _ -> Bijection.Exn.fail "commit" "value")
 
   let git =
     let kind_to_string = function
@@ -200,7 +200,7 @@ struct
                    | `Tag,    _, Git.Value.Tag t    -> Git.Value.Tag t
                    | `Commit, _, Git.Value.Commit c -> Git.Value.Commit c
                    | `Blob,   _, Git.Value.Blob b   -> Git.Value.Blob b
-                   | kind, _, value -> Bijection.fail (Fmt.strf "kind:%s * value:%s" (kind_to_string kind) (value_to_string value)) "value")
+                   | kind, _, value -> Bijection.Exn.fail (Fmt.strf "kind:%s * value:%s" (kind_to_string kind) (value_to_string value)) "value")
       ~bwd:(function Git.Value.Tree _ as t   -> `Tree,   Git.Value.F.length t, t
                    | Git.Value.Tag _ as t    -> `Tag,    Git.Value.F.length t, t
                    | Git.Value.Commit _ as t -> `Commit, Git.Value.F.length t, t
@@ -223,19 +223,19 @@ struct
         make_exn
           ~tag:("unit", "`plus")
           ~fwd:(fun () -> `Plus)
-          ~bwd:(function `Plus -> () | _ -> Bijection.fail "`plus" "unit")
-        <$> (char <$ Iso.chare '+') in
+          ~bwd:(function `Plus -> () | _ -> Bijection.Exn.fail "`plus" "unit")
+        <$> (Iso.chare '+' <$> char) in
       let minus =
         make_exn
           ~tag:("unit", "`minus")
           ~fwd:(fun () -> `Minus)
-          ~bwd:(function `Minus -> () | _ -> Bijection.fail "`minus" "unit")
-        <$> (char <$ Iso.chare '-') in
+          ~bwd:(function `Minus -> () | _ -> Bijection.Exn.fail "`minus" "unit")
+        <$> (Iso.chare '-' <$> char) in
       let digit2 =
         make_exn
           ~tag:("char * char", "int")
           ~fwd:(function ('0' .. '9' as a), ('0' .. '9' as b) -> (Char.code a - 48) * 10 + (Char.code b - 48)
-                       | _, _ -> Bijection.fail "char * char" "int")
+                       | _, _ -> Bijection.Exn.fail "char * char" "int")
           ~bwd:(fun n -> Char.chr (n / 10 + 48), Char.chr (n mod 10 + 48))
         <$> ((satisfy is_digit) <*> (satisfy is_digit)) in
       (compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
@@ -248,9 +248,9 @@ struct
 
     let user =
       (compose obj4 Iso.user) <$>
-      ((chop <$> ((while1 is_not_lt) <* (char <$ Iso.chare '<')))
-       <*> ((while1 is_not_gt) <* (string "> "<$ Iso.stringe "> "))
-       <*> ((Iso.int64 <$> while1 is_digit) <* (char <$ Iso.chare ' '))
+      ((chop <$> ((while1 is_not_lt) <* (Iso.chare '<' <$> char)))
+       <*> ((while1 is_not_gt) <* (Iso.stringe "> " <$> string "> "))
+       <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.chare ' ' <$> char))
        <*> date)
   end
 
@@ -260,7 +260,8 @@ end
 
 module Make (M: Meta.S) =
 struct
-  open M
+  module Meta = Meta.Make(M)
+  open Meta
   open Bijection
 
   let is_not_sp chr = chr <> ' '
@@ -276,33 +277,33 @@ struct
 
   let entry =
     Iso.entry <$>
-    ((perm <* (char <$ Iso.chare ' '))
-     <*> (name <* (char <$ Iso.chare '\x00'))
+    ((perm <* (Iso.chare ' ' <$> char))
+     <*> (name <* (Iso.chare '\x00' <$> char))
      <*> hash)
 
   let value =
-    let sep = string "\n " <$ Iso.stringe "\n " in
-    list ~sep (while0 is_not_lf)
+    let sep = Iso.stringe "\n " <$> string "\n " in
+    sep_by0 ~sep (while0 is_not_lf)
 
   let extra =
-    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (char <$ Iso.chare ' '))
-    <*> (value <* (satisfy ((=) '\x0a') <$ Iso.chare '\x0a'))
+    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (Iso.chare ' ' <$> char))
+    <*> (value <* (Iso.chare '\x0a' <$> char))
 
   let binding ?key value =
-    let value = (value <$> (while1 is_not_lf <* (char <$ Iso.chare '\x0a'))) in
+    let value = (value <$> (while1 is_not_lf <* (Iso.chare '\x0a' <$> char))) in
 
     match key with
     | Some key ->
-      ((string key) <* (char <$ Iso.chare ' ')) <*> value
+      ((string key) <* (Iso.chare ' ' <$> char)) <*> value
     | None ->
-      (while1 is_not_sp <* (char <$ Iso.chare ' ')) <*> value
+      (while1 is_not_sp <* (Iso.chare ' ' <$> char)) <*> value
 
   let user_of_string =
     make_exn
       ~tag:("string", "user")
       ~fwd:(fun s -> match Angstrom.parse_string User.Decoder.user s with
           | Ok v -> v
-          | Error _ -> Bijection.fail "string" "user")
+          | Error _ -> Bijection.Exn.fail "string" "user")
       ~bwd:(Encoder.to_string User.Encoder.user)
 
   let tag =
@@ -314,13 +315,13 @@ struct
 
   let commit =
     binding ~key:"tree" Iso.hex
-    <*> (list (binding ~key:"parent" Iso.hex))
+    <*> (rep0 (binding ~key:"parent" Iso.hex))
     <*> binding ~key:"author" user_of_string
     <*> binding ~key:"committer" user_of_string
-    <*> (list extra)
+    <*> (rep0 extra)
     <*> while1 (fun _ -> true)
 
-  let tree = Iso.tree <$> (list entry)
+  let tree = Iso.tree <$> (rep0 entry)
   let tag = (compose obj5 Iso.tag) <$> tag
   let commit = (compose obj6 Iso.commit) <$> commit
   let blob = (compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
@@ -329,8 +330,8 @@ struct
 
   let git =
     let value kind p =
-      ((Iso.kind <$> string kind) <* (char <$ Iso.chare ' '))
-      <*> (length <* (char <$ Iso.chare '\x00'))
+      ((Iso.kind <$> string kind) <* (Iso.chare ' ' <$> char))
+      <*> (length <* (Iso.chare '\x00' <$> char))
       <*> p in
 
     (compose obj3 Iso.git)
@@ -381,12 +382,12 @@ let run t : (unit Alcotest.test_case list, Git.error) result Lwt.t =
       Alcotest_lwt.test_case
         (Fmt.strf "%a" Git.Hash.pp hash)
         `Quick
-        (fun _switch () -> read_parse_and_write t hash >>= function
-                           | Ok () -> Lwt.return ()
-                           | Error (`Angstrom (hash, err)) ->
-                              Alcotest.failf "Retrieve an error on %a: %s" Git.Hash.pp hash err
-                           | Error (`Store err) ->
-                              Alcotest.failf "Retrieve a store error: %a" Git.pp_error err)
+        (fun _ () -> read_parse_and_write t hash >>= function
+                     | Ok () -> Lwt.return ()
+                     | Error (`Angstrom (hash, err)) ->
+                        Alcotest.failf "Retrieve an error on %a: %s" Git.Hash.pp hash err
+                     | Error (`Store err) ->
+                        Alcotest.failf "Retrieve a store error: %a" Git.pp_error err)
       |> Lwt.return)
     hashes >>= fun tests -> Lwt.return (Ok tests)
 
@@ -402,17 +403,211 @@ let clone_and_make () =
     ~reference:Git.Reference.(master, master) repository
   >>|= fun () -> Fmt.(pf stdout) "Repository %a cloned at %a.\n%!" Uri.pp_hum repository Fpath.pp Fpath.(v pwd / "repository"); run t >>!= store_err
 
+let iso =
+  let open Bijection in
+  let test_fwd ~global value t expect input =
+    Alcotest.test_case (Fmt.strf "%s (fwd)" global)
+      `Quick
+      (fun () -> Alcotest.(check value) (Fmt.strf "%a" (Alcotest.pp value) expect) expect (fwd t input)) in
+  let test_bwd ~global value t input expect =
+    Alcotest.test_case (Fmt.strf "%s (bwd)" global)
+      `Quick
+      (fun () -> Alcotest.(check value) (Fmt.strf "%a" (Alcotest.pp value) expect) expect (fwd t input)) in
+  [ test_fwd ~global:"string"   Alcotest.string          Exn.string                 "foo"      ['f'; 'o'; 'o'; ]
+  ; test_fwd ~global:"string"   Alcotest.string          Exn.string                 ""         []
+  ; test_bwd ~global:"string"   Alcotest.string          Exn.string                 ['f'; 'o'; 'o'; ] "foo"
+  ; test_bwd ~global:"string"   Alcotest.string          Exn.string                 []         ""
+  ; test_fwd ~global:"int"      Alcotest.int             Exn.int                    42         "42"
+  ; test_bwd ~global:"int"      Alcotest.int             Exn.int                    "42"       42
+  ; test_fwd ~global:"int"      Alcotest.int             Exn.int                    (-42)      "-42"
+  ; test_bwd ~global:"int"      Alcotest.int             Exn.int                    "-42"      (-42)
+  ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                   true       "true"
+  ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                   "true"     true
+  ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                   false      "false"
+  ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                   "false"    false
+  ; test_fwd ~global:"identity" Alcotest.int             identity                   42         42
+  ; test_bwd ~global:"identity" Alcotest.int             identity                   42         42
+  ; test_fwd ~global:"commute"  Alcotest.(pair int int)  commute                    (1, 2)     (2, 1)
+  ; test_bwd ~global:"commute"  Alcotest.(pair int int)  commute                    (1, 2)     (2, 1)
+  ; test_fwd ~global:"compose"  Alcotest.(pair int int)  (compose commute commute)  (1, 2)     (1, 2)
+  ; test_fwd ~global:"inverse"  Alcotest.int             Exn.int                    42         "42"
+  ; test_bwd ~global:"inverse"  Alcotest.string          (flip Exn.int)             42         "42"
+  ; test_fwd ~global:"inverse"  Alcotest.string          (flip Exn.int)             "42"       42
+  ; test_bwd ~global:"inverse"  Alcotest.int             Exn.int                    "42"       42
+  ; test_fwd ~global:"product"  Alcotest.(pair int bool) (product Exn.int Exn.bool) (42, true) ("42", "true")
+  ; ]
+
+module type COMBINATOR =
+  sig
+    type sentinel
+
+    module Make : functor (M: Meta.S) -> sig val p: sentinel M.t end
+  end
+
+let make
+    : type sentinel.
+           (module COMBINATOR with type sentinel = sentinel) ->
+           ((sentinel -> string) * (string -> sentinel))
+  = fun (module Combinator) ->
+  let to_string v =
+    let module Enc = Combinator.Make(Proxy_encoder.Impl) in
+    Encoder.to_string Enc.p v in
+  let of_string s =
+    let module Dec = Combinator.Make(Proxy_decoder.Impl) in
+    match Angstrom.parse_string Dec.p s with
+    | Ok v -> v
+    | Error err -> invalid_arg err in
+  to_string, of_string
+
+let combinator =
+  let make_test
+      : type sentinel.
+             string
+             -> (module COMBINATOR with type sentinel = sentinel)
+             -> sentinel Alcotest.testable
+             -> sentinel
+             -> string
+             -> unit Alcotest.test_case list
+    = fun name (module Combinator) value sentinel s ->
+    let to_string, of_string = make (module Combinator) in
+
+    [ Alcotest.test_case name `Quick
+        (fun () ->
+          Alcotest.(check value) "decode" (of_string s) sentinel)
+    ; Alcotest.test_case name `Quick
+        (fun () ->
+          Alcotest.(check string) "encode" (to_string sentinel) s) ] in
+
+  let open Bijection in
+
+  List.concat
+    [ make_test "( *> )"
+        (module
+           (struct
+             type sentinel = unit
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                 let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> char
+                 let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> char
+                 let p : sentinel S.t = a *> b end end))
+        Alcotest.unit () "ab"
+    ; make_test "( <* )"
+        (module
+           (struct
+             type sentinel = unit
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                 let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> char
+                 let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> char
+                 let p : sentinel S.t = a <* b end end))
+        Alcotest.unit () "ab"
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char
+
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
+
+                  let a = Exn.subset ((=) 'a') <$> char
+                  let b = Exn.subset ((=) 'b') <$> char
+                  let c = Exn.subset ((=) 'c') <$> char
+                  let p : sentinel S.t = choice [ a; b; c; ] end end) : COMBINATOR with type sentinel = char) in
+       List.concat
+         [ make_test "choice" combinator Alcotest.char 'a' "a"
+         ; make_test "choice" combinator Alcotest.char 'b' "b"
+         ; make_test "choice" combinator Alcotest.char 'c' "c" ])
+    ; make_test "option"
+        (module
+           (struct
+             type sentinel = char option
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                 let p : sentinel S.t = option char end end))
+        Alcotest.(option char) (Some 'a') "a"
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
+
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
+
+                  let p : sentinel S.t = count 3 char end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "count" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar" ])
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
+
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
+
+                  let p : sentinel S.t = rep0 char end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "rep0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
+         ; make_test "rep0" combinator Alcotest.(list char) [] "" ])
+    ; make_test "rep1"
+        (module
+           (struct
+             type sentinel = char option
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                 let p : sentinel S.t = option char end end))
+        Alcotest.(option char) (Some 'a') "a"
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
+
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
+
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
+                  let p : sentinel S.t = sep_by0 ~sep:comma char end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "sep_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
+         ; make_test "sep_by0" combinator Alcotest.(list char) [] "" ])
+    ; make_test "sequence"
+        (module
+           (struct
+             type sentinel = char list
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                 let p : sentinel S.t = sequence [char; char; char; ] end end))
+        Alcotest.(list char) ['b'; 'a'; 'r'; ] "bar" ]
 
 let main () =
   let open Lwt.Infix in
 
   clone_and_make () >>= function
   | Ok tests ->
-     Alcotest.run "isomorpism" [ "encore", tests ];
+     Alcotest.run "isomorpism" [ "isomorphism", iso
+                               ; "combinator", combinator
+                               ; "encore", tests ];
      Lwt.return ()
   | Error err ->
      Fmt.(pf stderr) "Retrieve an error: %a.\n%!" Http.pp_error err;
      Lwt.return ()
-
 
 let () = Lwt_main.run (main ())
