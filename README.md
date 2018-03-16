@@ -1,7 +1,7 @@
 Encore
 ======
 
-[![Build Status](https://travis-ci.org/dinosaure/encore.svg?branch=master)](https://travis-ci.org/dinosure/encore)
+[![Build Status](https://travis-ci.org/dinosaure/encore.svg?branch=master)](https://travis-ci.org/dinosaure/encore)
 ![MirageOS](https://img.shields.io/badge/MirageOS-%F0%9F%90%AB-red.svg)
 
 Encore is a little library to provide an interface to generate an
