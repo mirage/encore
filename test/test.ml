@@ -563,14 +563,14 @@ let combinator =
     ; make_test "rep1"
         (module
            (struct
-             type sentinel = char option
+             type sentinel = char list
 
              module Make =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                 let p : sentinel S.t = option char end end))
-        Alcotest.(option char) (Some 'a') "a"
+                 let p : sentinel S.t = rep1 char end end))
+        Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
     ; (let combinator =
          (module
             (struct
@@ -585,6 +585,45 @@ let combinator =
        List.concat
          [ make_test "sep_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
          ; make_test "sep_by0" combinator Alcotest.(list char) [] "" ])
+    ; make_test "sep_sep1"
+        (module
+           (struct
+             type sentinel = char list
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
+                 let p : sentinel S.t = sep_by1 ~sep:comma char end end))
+        Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
+
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
+
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
+                  let p : sentinel S.t = end_by0 ~sep:comma char end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "end_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
+         ; make_test "end_by0" combinator Alcotest.(list char) [] ""
+         ; make_test "end_by0" combinator Alcotest.(list char) [ 'b' ] "b," ])
+    ; make_test "sep_sep1"
+        (module
+           (struct
+             type sentinel = char list
+
+             module Make =
+               functor (S: Meta.S) -> struct
+                 include Meta.Make(S)
+
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
+                 let p : sentinel S.t = end_by1 ~sep:comma char end end))
+        Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
     ; make_test "sequence"
         (module
            (struct
