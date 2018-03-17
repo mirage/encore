@@ -50,6 +50,7 @@ sig
   val rep1: 'a t -> 'a list t
   val sep_by0: sep:unit t -> 'a t -> 'a list t
   val sep_by1: sep:unit t -> 'a t -> 'a list t
+  val end_by0: sep:unit t -> 'a t -> 'a list t
   val end_by1: sep:unit t -> 'a t -> 'a list t
   val sep_end_by0: sep:unit t -> 'a t -> 'a list t
   val sep_end_by1: sep:unit t -> 'a t -> 'a list t
@@ -107,6 +108,9 @@ struct
 
   let end_by1 ~sep p =
     rep1 (p <* sep)
+
+  let end_by0 ~sep p =
+    rep0 (p <* sep)
 
   let sep_end_by1 ~sep p =
     sep_by1 ~sep p <* skip (option sep)

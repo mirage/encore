@@ -50,6 +50,7 @@ sig
   val rep1: 'a t -> 'a list t
   val sep_by0: sep:unit t -> 'a t -> 'a list t
   val sep_by1: sep:unit t -> 'a t -> 'a list t
+  val end_by0: sep:unit t -> 'a t -> 'a list t
   val end_by1: sep:unit t -> 'a t -> 'a list t
   val sep_end_by0: sep:unit t -> 'a t -> 'a list t
   val sep_end_by1: sep:unit t -> 'a t -> 'a list t
