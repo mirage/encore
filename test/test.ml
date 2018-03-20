@@ -238,7 +238,7 @@ struct
                        | _, _ -> Bijection.Exn.fail "char * char" "int")
           ~bwd:(fun n -> Char.chr (n / 10 + 48), Char.chr (n mod 10 + 48))
         <$> ((satisfy is_digit) <*> (satisfy is_digit)) in
-      (compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
+      (Exn.compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
 
     let chop =
       make_exn
@@ -247,7 +247,7 @@ struct
         ~bwd:(fun s -> s ^ " ")
 
     let user =
-      (compose obj4 Iso.user) <$>
+      (Exn.compose obj4 Iso.user) <$>
       ((chop <$> ((while1 is_not_lt) <* (Iso.chare '<' <$> char)))
        <*> ((while1 is_not_gt) <* (Iso.stringe "> " <$> string "> "))
        <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.chare ' ' <$> char))
@@ -309,7 +309,7 @@ struct
   let tag =
     binding ~key:"object" Iso.hex
     <*> binding ~key:"type" Iso.kind
-    <*> binding ~key:"tag" identity
+    <*> binding ~key:"tag" Exn.identity
     <*> (option (binding ~key:"tagger" user_of_string))
     <*> while1 (fun _ -> true)
 
@@ -322,9 +322,9 @@ struct
     <*> while1 (fun _ -> true)
 
   let tree = Iso.tree <$> (rep0 entry)
-  let tag = (compose obj5 Iso.tag) <$> tag
-  let commit = (compose obj6 Iso.commit) <$> commit
-  let blob = (compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
+  let tag = (Exn.compose obj5 Iso.tag) <$> tag
+  let commit = (Exn.compose obj6 Iso.commit) <$> commit
+  let blob = (Exn.compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
 
   let length = Iso.int64 <$> while1 is_digit
 
@@ -334,7 +334,7 @@ struct
       <*> (length <* (Iso.chare '\x00' <$> char))
       <*> p in
 
-    (compose obj3 Iso.git)
+    (Exn.compose obj3 Iso.git)
     <$> ((value "commit" commit)
          <|> (value "tag" tag)
          <|> (value "tree" tree)
@@ -413,28 +413,28 @@ let iso =
     Alcotest.test_case (Fmt.strf "%s (bwd)" global)
       `Quick
       (fun () -> Alcotest.(check value) (Fmt.strf "%a" (Alcotest.pp value) expect) expect (fwd t input)) in
-  [ test_fwd ~global:"string"   Alcotest.string          Exn.string                 "foo"      ['f'; 'o'; 'o'; ]
-  ; test_fwd ~global:"string"   Alcotest.string          Exn.string                 ""         []
-  ; test_bwd ~global:"string"   Alcotest.string          Exn.string                 ['f'; 'o'; 'o'; ] "foo"
-  ; test_bwd ~global:"string"   Alcotest.string          Exn.string                 []         ""
-  ; test_fwd ~global:"int"      Alcotest.int             Exn.int                    42         "42"
-  ; test_bwd ~global:"int"      Alcotest.int             Exn.int                    "42"       42
-  ; test_fwd ~global:"int"      Alcotest.int             Exn.int                    (-42)      "-42"
-  ; test_bwd ~global:"int"      Alcotest.int             Exn.int                    "-42"      (-42)
-  ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                   true       "true"
-  ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                   "true"     true
-  ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                   false      "false"
-  ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                   "false"    false
-  ; test_fwd ~global:"identity" Alcotest.int             identity                   42         42
-  ; test_bwd ~global:"identity" Alcotest.int             identity                   42         42
-  ; test_fwd ~global:"commute"  Alcotest.(pair int int)  commute                    (1, 2)     (2, 1)
-  ; test_bwd ~global:"commute"  Alcotest.(pair int int)  commute                    (1, 2)     (2, 1)
-  ; test_fwd ~global:"compose"  Alcotest.(pair int int)  (compose commute commute)  (1, 2)     (1, 2)
-  ; test_fwd ~global:"inverse"  Alcotest.int             Exn.int                    42         "42"
-  ; test_bwd ~global:"inverse"  Alcotest.string          (flip Exn.int)             42         "42"
-  ; test_fwd ~global:"inverse"  Alcotest.string          (flip Exn.int)             "42"       42
-  ; test_bwd ~global:"inverse"  Alcotest.int             Exn.int                    "42"       42
-  ; test_fwd ~global:"product"  Alcotest.(pair int bool) (product Exn.int Exn.bool) (42, true) ("42", "true")
+  [ test_fwd ~global:"string"   Alcotest.string          Exn.string                    "foo"      ['f'; 'o'; 'o'; ]
+  ; test_fwd ~global:"string"   Alcotest.string          Exn.string                    ""         []
+  ; test_bwd ~global:"string"   Alcotest.string          Exn.string                    ['f'; 'o'; 'o'; ] "foo"
+  ; test_bwd ~global:"string"   Alcotest.string          Exn.string                    []         ""
+  ; test_fwd ~global:"int"      Alcotest.int             Exn.int                       42         "42"
+  ; test_bwd ~global:"int"      Alcotest.int             Exn.int                       "42"       42
+  ; test_fwd ~global:"int"      Alcotest.int             Exn.int                       (-42)      "-42"
+  ; test_bwd ~global:"int"      Alcotest.int             Exn.int                       "-42"      (-42)
+  ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                      true       "true"
+  ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                      "true"     true
+  ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                      false      "false"
+  ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                      "false"    false
+  ; test_fwd ~global:"identity" Alcotest.int             Exn.identity                  42         42
+  ; test_bwd ~global:"identity" Alcotest.int             Exn.identity                  42         42
+  ; test_fwd ~global:"commute"  Alcotest.(pair int int)  Exn.commute                   (1, 2)     (2, 1)
+  ; test_bwd ~global:"commute"  Alcotest.(pair int int)  Exn.commute                   (1, 2)     (2, 1)
+  ; test_fwd ~global:"compose"  Alcotest.(pair int int)  Exn.(compose commute commute) (1, 2)     (1, 2)
+  ; test_fwd ~global:"inverse"  Alcotest.int             Exn.int                       42         "42"
+  ; test_bwd ~global:"inverse"  Alcotest.string          (flip Exn.int)                42         "42"
+  ; test_fwd ~global:"inverse"  Alcotest.string          (flip Exn.int)                "42"       42
+  ; test_bwd ~global:"inverse"  Alcotest.int             Exn.int                       "42"       42
+  ; test_fwd ~global:"product"  Alcotest.(pair int bool) (product Exn.int Exn.bool)    (42, true) ("42", "true")
   ; ]
 
 module type COMBINATOR =

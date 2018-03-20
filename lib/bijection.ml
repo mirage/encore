@@ -18,7 +18,7 @@ type ('k, 'a, 'b) t =
   ; tag : string * string }
   constraint 'k =
     < reta : ('a, 'ra, 'kd) kind
-  ; retb : ('b, 'rb, 'kd) kind >
+    ; retb : ('b, 'rb, 'kd) kind >
 
 type ('a, 'b) texn =
   (< reta : ('a, 'a, exn) kind
@@ -78,35 +78,6 @@ let product : (< reta : ('a, 'ra, 'kd) kind
   ; kd = u.kd (* = v.kd *)
   ; tag = (Fmt.strf "%s * %s" (fst u.tag) (fst v.tag), Fmt.strf "%s * %s" (snd u.tag) (snd v.tag)) }
 
-let compose
-  : (< reta : ('a, 'ra, 'kd) kind
-     ; retb : ('b, 'rb, 'kd) kind >, 'a, 'b) t ->
-    (< reta : ('b, 'rb, 'kd) kind
-     ; retb : ('c, 'rc, 'kd) kind >, 'b, 'c) t ->
-    (< reta : ('a, 'ra, 'kd) kind
-     ; retb : ('c, 'rc, 'kd) kind >, 'a, 'c) t
-  = fun { to_; of_; kd; tag; } s ->
-  { to_ = (fun x -> s.to_ @@ to_ x)
-  ; of_ = (fun x -> of_ @@ s.of_ x)
-  ; kd  = kd
-  ; tag = (fst tag, snd s.tag) }
-
-let ( % ) = compose
-
-let commute =
-  { to_ = (fun (a, b) -> (b, a))
-  ; of_ = (fun (b, a) -> (a, b))
-  ; kd  = E
-  ; tag = ("a * b", "b * a") }
-
-external identity : 'a -> 'a = "%identity"
-
-let identity =
-  { to_ = identity
-  ; of_ = identity
-  ; kd  = E
-  ; tag = ("a", "a") }
-
 let obj3 =
   { to_ = (fun ((x, y), z) -> (x, y, z))
   ; of_ = (fun (x, y, z) -> ((x, y), z))
@@ -131,11 +102,34 @@ let obj6 =
   ; kd  = E
   ; tag = ("(((((a, b), c), d), e), f)", "(a, b, c, d, e, f)") }
 
+external identity : 'a -> 'a = "%identity"
+
 module Exn =
 struct
   exception Bijection of string * string
 
   let fail to_ of_ = raise (Bijection (to_, of_))
+
+  let compose: ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
+    = fun { to_; of_; tag; _ } s ->
+    { to_ = (fun x -> s.to_ @@ to_ x)
+    ; of_ = (fun x -> of_ @@ s.of_ x)
+    ; kd  = E
+    ; tag = (fst tag, snd s.tag) }
+
+  let ( % ) = compose
+
+  let commute =
+    { to_ = (fun (a, b) -> (b, a))
+    ; of_ = (fun (b, a) -> (a, b))
+    ; kd  = E
+    ; tag = ("a * b", "b * a") }
+
+  let identity =
+    { to_ = identity
+    ; of_ = identity
+    ; kd  = E
+    ; tag = ("a", "a") }
 
   let subset predicate =
     { to_ = (fun x -> if predicate x then x else fail "a with predicate" "x")
@@ -177,7 +171,7 @@ struct
 
   let _fst ~tag v =
     let tag = (Fmt.strf "%s * %s" (fst v.tag) tag), (snd v.tag) in
-    { to_ = (fun (x, _) -> v.to_ x)
+    { to_ = (fun (x, _) -> x)
     ; of_ = (fun x ->
       try (x, v.of_ ())
       with _ -> fail (snd tag) (fst tag))
@@ -207,7 +201,7 @@ struct
     { to_ = (fun () -> None)
     ; of_ = (function
              | Some _ -> fail (snd tag) (fst tag)
-             | None -> Some ())
+             | None -> ())
     ; kd = E
     ; tag }
 

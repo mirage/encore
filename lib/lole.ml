@@ -1,14 +1,9 @@
-[@@@landmark "auto"]
-
 module Option =
 struct
-  type 'a t = 'a option
-
   let map_default default f = function
     | Some v -> f v
     | None -> default
 end
-
 
 module type VALUE =
 sig
@@ -78,6 +73,7 @@ struct
 end
 
 type bigstring = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+type 'a blitter = 'a -> int -> bigstring -> int -> int -> unit
 
 let pp_chr =
   Fmt.using
@@ -361,7 +357,6 @@ type 'v state =
   | Continue of { continue : encoder -> 'v state
                 ; encoder  : encoder }
   | End      of 'v
-and 'v k = encoder -> 'v
 
 let create len =
   { sched = RBS.make (len * 2)
@@ -533,7 +528,7 @@ let writev k l t =
   let rec aux t = function
     | [] -> continue k t
     | (blit, length, off, len, buffer) :: r ->
-      write (fun t -> (aux[@tailcall]) t r) ~blit ~length ?off ~len buffer t
+      write (fun t -> (aux[@tailcall]) t r) ~blit ~length ?off ?len buffer t
   in aux t l
 
 let bigarray_blit_from_string src src_off dst dst_off len =
@@ -595,7 +590,14 @@ let write_uint8 =
 module type EndianBigstringSig = EndianBigstring.EndianBigstringSig
 module type EndianBytesSig = EndianBytes.EndianBytesSig
 
-module MakeE (EBigstring : EndianBigstringSig) =
+module type SE =
+  sig
+    val write_uint16: int -> (encoder -> 'r state) -> encoder -> 'r state
+    val write_uint32: int32 -> (encoder -> 'r state) -> encoder -> 'r state
+    val write_uint64: int64 -> (encoder-> 'r state) -> encoder -> 'r state
+  end
+
+module MakeE (EBigstring : EndianBigstringSig): SE =
 struct
   let _length _ = assert false
 
