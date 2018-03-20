@@ -41,7 +41,7 @@ module Git = Git_unix.FS
 open Encore
 
 let safe_exn tag f x =
-  try f x with _ -> Bijection.fail (fst tag) (snd tag)
+  try f x with _ -> Bijection.Exn.fail (fst tag) (snd tag)
 
 let flip (a, b) = (b ,a)
 
@@ -82,13 +82,13 @@ struct
     Bijection.make_exn ~tag
       ~fwd:(fun l -> Git.Value.Tree (Git.Value.Tree.of_list l))
       ~bwd:(function Git.Value.Tree l -> Git.Value.Tree.to_list l
-                   | _ -> Bijection.fail "tree" "entry list")
+                   | _ -> Bijection.Exn.fail "tree" "entry list")
 
   let chare chr =
-    Bijection.element ~tag:"char" ~compare:Char.equal chr
+    Bijection.Exn.element ~tag:"char" ~compare:Char.equal chr
 
   let stringe str =
-    Bijection.element ~tag:"string" ~compare:String.equal str
+    Bijection.Exn.element ~tag:"string" ~compare:String.equal str
 
   let cstruct =
     Bijection.make_exn
@@ -106,7 +106,7 @@ struct
                    | "commit" -> `Commit
                    | "tag"    -> `Tag
                    | "blob"   -> `Blob
-                   | s -> Bijection.fail s "kind")
+                   | s -> Bijection.Exn.fail s "kind")
       ~bwd:(function `Tree   -> "tree"
                    | `Commit -> "commit"
                    | `Tag    -> "tag"
@@ -128,7 +128,7 @@ struct
       ~tag:("cstruct", "blob")
       ~fwd:(fun x -> Git.Value.Blob (Git.Value.Blob.of_cstruct x))
       ~bwd:(function Git.Value.Blob b -> Git.Value.Blob.to_cstruct b
-                   | _ -> Bijection.fail "blob" "cstruct")
+                   | _ -> Bijection.Exn.fail "blob" "cstruct")
 
   let user =
     Bijection.make_exn
@@ -164,7 +164,7 @@ struct
              ("tag", Git.Value.Tag.tag tag),
              tagger tag,
              Git.Value.Tag.message tag)
-          | _ -> Bijection.fail "not tag" "value")
+          | _ -> Bijection.Exn.fail "not tag" "value")
 
   let commit =
     Bijection.make_exn
@@ -180,7 +180,7 @@ struct
              ("committer", Git.Value.Commit.committer c),
              Git.Value.Commit.extra c,
              Git.Value.Commit.message c)
-          | _ -> Bijection.fail "commit" "value")
+          | _ -> Bijection.Exn.fail "commit" "value")
 
   let git =
     let kind_to_string = function
@@ -199,7 +199,7 @@ struct
                    | `Tag,    _, Git.Value.Tag t    -> Git.Value.Tag t
                    | `Commit, _, Git.Value.Commit c -> Git.Value.Commit c
                    | `Blob,   _, Git.Value.Blob b   -> Git.Value.Blob b
-                   | kind, _, value -> Bijection.fail (Fmt.strf "kind:%s * value:%s" (kind_to_string kind) (value_to_string value)) "value")
+                   | kind, _, value -> Bijection.Exn.fail (Fmt.strf "kind:%s * value:%s" (kind_to_string kind) (value_to_string value)) "value")
       ~bwd:(function Git.Value.Tree _ as t   -> `Tree,   Git.Value.F.length t, t
                    | Git.Value.Tag _ as t    -> `Tag,    Git.Value.F.length t, t
                    | Git.Value.Commit _ as t -> `Commit, Git.Value.F.length t, t
@@ -222,22 +222,22 @@ struct
         make_exn
           ~tag:("unit", "`plus")
           ~fwd:(fun () -> `Plus)
-          ~bwd:(function `Plus -> () | _ -> Bijection.fail "`plus" "unit")
-        <$> (char <$ Iso.chare '+') in
+          ~bwd:(function `Plus -> () | _ -> Bijection.Exn.fail "`plus" "unit")
+        <$> (Iso.chare '+' <$> char) in
       let minus =
         make_exn
           ~tag:("unit", "`minus")
           ~fwd:(fun () -> `Minus)
-          ~bwd:(function `Minus -> () | _ -> Bijection.fail "`minus" "unit")
-        <$> (char <$ Iso.chare '-') in
+          ~bwd:(function `Minus -> () | _ -> Bijection.Exn.fail "`minus" "unit")
+        <$> (Iso.chare '-' <$> char) in
       let digit2 =
         make_exn
           ~tag:("char * char", "int")
           ~fwd:(function ('0' .. '9' as a), ('0' .. '9' as b) -> (Char.code a - 48) * 10 + (Char.code b - 48)
-                       | _, _ -> Bijection.fail "char * char" "int")
+                       | _, _ -> Bijection.Exn.fail "char * char" "int")
           ~bwd:(fun n -> Char.chr (n / 10 + 48), Char.chr (n mod 10 + 48))
         <$> ((satisfy is_digit) <*> (satisfy is_digit)) in
-      (compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
+      (Exn.compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
 
     let chop =
       make_exn
@@ -246,10 +246,10 @@ struct
         ~bwd:(fun s -> s ^ " ")
 
     let user =
-      (compose obj4 Iso.user) <$>
-      ((chop <$> ((while1 is_not_lt) <* (char <$ Iso.chare '<')))
-       <*> ((while1 is_not_gt) <* (string "> "<$ Iso.stringe "> "))
-       <*> ((Iso.int64 <$> while1 is_digit) <* (char <$ Iso.chare ' '))
+      (Exn.compose obj4 Iso.user) <$>
+      ((chop <$> ((while1 is_not_lt) <* (Iso.chare '<' <$> char)))
+       <*> ((while1 is_not_gt) <* (Iso.stringe "> " <$> string "> "))
+       <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.chare ' ' <$> char))
        <*> date)
   end
 
@@ -259,7 +259,8 @@ end
 
 module Make (M: Meta.S) =
 struct
-  open M
+  module Meta = Meta.Make(M)
+  open Meta
   open Bijection
 
   let is_not_sp chr = chr <> ' '
@@ -275,64 +276,64 @@ struct
 
   let entry =
     Iso.entry <$>
-    ((perm <* (char <$ Iso.chare ' '))
-     <*> (name <* (char <$ Iso.chare '\x00'))
+    ((perm <* (Iso.chare ' ' <$> char))
+     <*> (name <* (Iso.chare '\x00' <$> char))
      <*> hash)
 
   let value =
-    let sep = string "\n " <$ Iso.stringe "\n " in
-    list ~sep (while0 is_not_lf)
+    let sep = Iso.stringe "\n " <$> string "\n " in
+    sep_by0 ~sep (while0 is_not_lf)
 
   let extra =
-    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (char <$ Iso.chare ' '))
-    <*> (value <* (satisfy ((=) '\x0a') <$ Iso.chare '\x0a'))
+    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (Iso.chare ' ' <$> char))
+    <*> (value <* (Iso.chare '\x0a' <$> char))
 
   let binding ?key value =
-    let value = (value <$> (while1 is_not_lf <* (char <$ Iso.chare '\x0a'))) in
+    let value = (value <$> (while1 is_not_lf <* (Iso.chare '\x0a' <$> char))) in
 
     match key with
     | Some key ->
-      ((string key) <* (char <$ Iso.chare ' ')) <*> value
+      ((string key) <* (Iso.chare ' ' <$> char)) <*> value
     | None ->
-      (while1 is_not_sp <* (char <$ Iso.chare ' ')) <*> value
+      (while1 is_not_sp <* (Iso.chare ' ' <$> char)) <*> value
 
   let user_of_string =
     make_exn
       ~tag:("string", "user")
       ~fwd:(fun s -> match Angstrom.parse_string User.Decoder.user s with
           | Ok v -> v
-          | Error _ -> Bijection.fail "string" "user")
+          | Error _ -> Bijection.Exn.fail "string" "user")
       ~bwd:(Encoder.to_string User.Encoder.user)
 
   let tag =
     binding ~key:"object" Iso.hex
     <*> binding ~key:"type" Iso.kind
-    <*> binding ~key:"tag" identity
+    <*> binding ~key:"tag" Exn.identity
     <*> (option (binding ~key:"tagger" user_of_string))
     <*> while1 (fun _ -> true)
 
   let commit =
     binding ~key:"tree" Iso.hex
-    <*> (list (binding ~key:"parent" Iso.hex))
+    <*> (rep0 (binding ~key:"parent" Iso.hex))
     <*> binding ~key:"author" user_of_string
     <*> binding ~key:"committer" user_of_string
-    <*> (list extra)
+    <*> (rep0 extra)
     <*> while1 (fun _ -> true)
 
-  let tree = Iso.tree <$> (list entry)
-  let tag = (compose obj5 Iso.tag) <$> tag
-  let commit = (compose obj6 Iso.commit) <$> commit
-  let blob = (compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
+  let tree = Iso.tree <$> (rep0 entry)
+  let tag = (Exn.compose obj5 Iso.tag) <$> tag
+  let commit = (Exn.compose obj6 Iso.commit) <$> commit
+  let blob = (Exn.compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
 
   let length = Iso.int64 <$> while1 is_digit
 
   let git =
     let value kind p =
-      ((Iso.kind <$> string kind) <* (char <$ Iso.chare ' '))
-      <*> (length <* (char <$ Iso.chare '\x00'))
+      ((Iso.kind <$> string kind) <* (Iso.chare ' ' <$> char))
+      <*> (length <* (Iso.chare '\x00' <$> char))
       <*> p in
 
-    (compose obj3 Iso.git)
+    (Exn.compose obj3 Iso.git)
     <$> ((value "commit" commit)
          <|> (value "tag" tag)
          <|> (value "tree" tree)
