@@ -1,3 +1,4 @@
+module Either = Either
 module Meta = Meta
 
 module Bijection = Bijection
