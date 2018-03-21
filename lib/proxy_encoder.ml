@@ -32,6 +32,7 @@ struct
 
   let fix = Encoder.fix
   let char = Encoder.char
+  let peek = Encoder.peek
   let skip _ = Encoder.nop
   let pure ~compare v = Encoder.pure ~compare v
   let fail err = Encoder.fail err

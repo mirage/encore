@@ -12,6 +12,12 @@ type -'a t =
 type -'a s =
   { sub : 'r. (encoder -> 'r state) -> encoder -> ?off:int -> ?len:int -> 'a -> 'r state }
 
+let peek : 'a t -> 'b t -> ('a, 'b) Either.t t =
+  fun a b ->
+  { run = fun k e -> function
+                  | L x -> a.run k e x
+                  | R y -> b.run k e y }
+
 let char    : char  t = { run = fun k e v -> Lole.write_char v k e }
 let int8    : int   t = { run = fun k e v -> Lole.write_uint8 v k e }
 let beint16 : int   t = { run = fun k e v -> Lole.BE.write_uint16 v k e }

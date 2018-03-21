@@ -10,6 +10,7 @@ type iovecs    = Lole.IOVec.t list
 type -'a t
 type -'a s
 
+val peek: 'a t -> 'b t -> ('a, 'b) Either.t t
 val char: char t
 val int8: int t
 val beint16: int t

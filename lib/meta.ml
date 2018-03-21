@@ -19,6 +19,7 @@ sig
   val skip    : 'a t -> unit t
   val take    : int -> string t
   val char    : char t
+  val peek    : 'a t -> 'b t -> ('a, 'b) Either.t t
 
   val satisfy : (char -> bool) -> char t
   val string  : string -> string t

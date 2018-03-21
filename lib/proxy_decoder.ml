@@ -52,6 +52,11 @@ struct
 
   let fix = Angstrom.fix
   let char = Angstrom.any_char
+  let peek a b =
+    let open Angstrom in
+    peek_char >>= function
+    | Some _ -> a >>| fun x -> Either.L x
+    | None -> b >>| fun y -> Either.R y
   let skip = Angstrom.skip_many
   let pure ~compare:_ v = Angstrom.return v
   let fail err = Angstrom.fail err
