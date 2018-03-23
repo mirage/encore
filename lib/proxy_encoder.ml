@@ -31,58 +31,40 @@ struct
     bijection.Bijection.of_ <$> pe
 
   let fix = Encoder.fix
-  let char = Encoder.char
-  let peek = Encoder.peek
-  let skip _ = Encoder.nop
-  let pure ~compare v = Encoder.pure ~compare v
-  let fail err = Encoder.fail err
-  let satisfy = Encoder.satisfy
-  let between = Encoder.between
-  let option = Encoder.option
-  let while1 = Encoder.while1
-  let while0 = Encoder.while0
-  let take = Encoder.take
-  let list = Encoder.list
-  let string e =
-    Bijection.make_exn ~tag:(e, "unit")
-      ~fwd:(fun s ->
-          if String.equal s e then s else Bijection.Exn.fail s e)
-      ~bwd:(fun s ->
-          if String.equal s e then s else Bijection.Exn.fail s e)
-    <$> Encoder.string
   let nop = Encoder.nop
-  let bwhile1 = Encoder.bwhile1
-  let bwhile0 = Encoder.bwhile0
+  let any = Encoder.char
+
+  let fail err = Encoder.fail err
+  let pure ~compare v = Encoder.pure ~compare v
+  let take = Encoder.take
+  let peek = Encoder.peek
+  let skip _ = pure ~compare:(fun () () -> 0) ()
+
+  let const s = Encoder.const s
+
+  let commit = Encoder.commit
+
+  let while0 predicate = Encoder.while0 predicate
+  let while1 predicate = Encoder.while1 predicate
+  let bigstring_while0 predicate = Encoder.bigstring_while0 predicate
+  let bigstring_while1 predicate = Encoder.bigstring_while1 predicate
+
+  let buffer = Encoder.buffer
+  let bigstring_buffer = Encoder.bigstring_buffer
 
   module Option =
   struct
     let (<$>) bijection p =
-      let open Encoder in
-      using p
-        (fun x -> match bijection.Bijection.of_ x with
-           | Some x -> x
-           | None -> Bijection.Exn.fail "'a" "unit")
+      (Bijection.Exn.of_option bijection) <$> p
 
     let ( $>)
       : unit t -> (unit, 'a) Bijection.topt -> 'a t
       = fun pe bijection ->
-      let open Encoder in
-      using pe
-        (fun x ->
-           let open Bijection in
-           match bijection.of_ x, bijection.kd with
-           | Some x, O -> x
-           | None, O -> Bijection.Exn.fail "'a" "unit")
+      pe $> (Bijection.Exn.of_option bijection)
 
     let (<$ )
       : 'a t -> (unit, 'a) Bijection.topt -> unit t
       = fun pu bijection ->
-      let open Encoder in
-      using pu
-        (fun x ->
-           let open Bijection in
-           match bijection.to_ x, bijection.kd with
-           | Some x, O -> x
-           | None, O -> Bijection.Exn.fail "'a" "unit")
+      pu <$ (Bijection.Exn.of_option bijection)
   end
 end

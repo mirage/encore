@@ -51,30 +51,38 @@ struct
         Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
 
   let fix = Angstrom.fix
-  let char = Angstrom.any_char
+  let nop = Angstrom.return ()
+  let any = Angstrom.any_char
+
+  let fail err = Angstrom.fail err
+  let pure ~compare:_ v = Angstrom.return v
+  let take = Angstrom.take
   let peek a b =
     let open Angstrom in
     peek_char >>= function
-    | Some _ -> a >>| fun x -> Either.L x
-    | None -> b >>| fun y -> Either.R y
+    | Some _ ->
+       a >>| fun x -> Either.L x
+    | None ->
+       b >>| fun y -> Either.R y
   let skip = Angstrom.skip_many
-  let pure ~compare:_ v = Angstrom.return v
-  let fail err = Angstrom.fail err
-  let satisfy = Angstrom.satisfy
-  let between p s a = p *> a <* s
-  let option t =
-    let open Angstrom in
-    ((t >>| fun v -> Some v) <|> (return None))
-  let while1 = Angstrom.take_while1
+
+  let const s = Angstrom.(string s <?> s)
+
+  let commit =
+    Angstrom.commit
+
   let while0 = Angstrom.take_while
-  let take = Angstrom.take
-  let list ?sep p = match sep with
-    | Some sep -> Angstrom.sep_by sep p
-    | None -> Angstrom.many p
-  let string = Angstrom.string
-  let nop = Angstrom.return ()
-  let bwhile0 = Angstrom.take_bigstring_while
-  let bwhile1 = Angstrom.take_bigstring_while1
+  let while1 = Angstrom.take_while1
+  let bigstring_while0 = Angstrom.take_bigstring_while
+  let bigstring_while1 = Angstrom.take_bigstring_while1
+
+  let buffer =
+    let open Angstrom in
+    available >>= take
+
+  let bigstring_buffer =
+    let open Angstrom in
+    available >>= take_bigstring
 
   module Option =
   struct

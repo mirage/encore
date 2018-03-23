@@ -85,10 +85,10 @@ struct
       ~bwd:(function Git.Value.Tree l -> Git.Value.Tree.to_list l
                    | _ -> Bijection.Exn.fail "tree" "entry list")
 
-  let chare chr =
-    Bijection.Exn.element ~tag:"char" ~compare:Char.equal chr
+  let char_elt chr =
+    Bijection.Exn.element ~tag:(Fmt.strf "char:%02x" (Char.code chr)) ~compare:Char.equal chr
 
-  let stringe str =
+  let string_elt str =
     Bijection.Exn.element ~tag:"string" ~compare:String.equal str
 
   let cstruct =
@@ -224,20 +224,20 @@ struct
           ~tag:("unit", "`plus")
           ~fwd:(fun () -> `Plus)
           ~bwd:(function `Plus -> () | _ -> Bijection.Exn.fail "`plus" "unit")
-        <$> (Iso.chare '+' <$> char) in
+        <$> (Iso.char_elt '+' <$> any) in
       let minus =
         make_exn
           ~tag:("unit", "`minus")
           ~fwd:(fun () -> `Minus)
           ~bwd:(function `Minus -> () | _ -> Bijection.Exn.fail "`minus" "unit")
-        <$> (Iso.chare '-' <$> char) in
+        <$> (Iso.char_elt '-' <$> any) in
       let digit2 =
         make_exn
           ~tag:("char * char", "int")
           ~fwd:(function ('0' .. '9' as a), ('0' .. '9' as b) -> (Char.code a - 48) * 10 + (Char.code b - 48)
                        | _, _ -> Bijection.Exn.fail "char * char" "int")
           ~bwd:(fun n -> Char.chr (n / 10 + 48), Char.chr (n mod 10 + 48))
-        <$> ((satisfy is_digit) <*> (satisfy is_digit)) in
+        <$> ((Exn.subset is_digit <$> any) <*> (Exn.subset is_digit <$> any)) in
       (Exn.compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
 
     let chop =
@@ -248,9 +248,9 @@ struct
 
     let user =
       (Exn.compose obj4 Iso.user) <$>
-      ((chop <$> ((while1 is_not_lt) <* (Iso.chare '<' <$> char)))
-       <*> ((while1 is_not_gt) <* (Iso.stringe "> " <$> string "> "))
-       <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.chare ' ' <$> char))
+      ((chop <$> ((while1 is_not_lt) <* (Iso.char_elt '<' <$> any)))
+       <*> ((while1 is_not_gt) <* (Iso.string_elt "> " <$> const "> "))
+       <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.char_elt ' ' <$> any))
        <*> date)
   end
 
@@ -273,30 +273,31 @@ struct
   let hex = Iso.hex <$> (take (Git.Hash.Digest.length * 2))
   let perm = Iso.perm <$> (while1 is_not_sp)
   let name = while1 is_not_nl
-  let kind = Iso.kind <$> (string "tree" <|> string "commit" <|> string "tag" <|> string "blob")
+  let kind =
+    Iso.kind <$> (const "tree" <|> const "commit" <|> const "tag" <|> const "blob")
 
   let entry =
     Iso.entry <$>
-    ((perm <* (Iso.chare ' ' <$> char))
-     <*> (name <* (Iso.chare '\x00' <$> char))
+    ((perm <* (Iso.char_elt ' ' <$> any))
+     <*> (name <* (Iso.char_elt '\x00' <$> any))
      <*> hash)
 
   let value =
-    let sep = Iso.stringe "\n " <$> string "\n " in
+    let sep = Iso.string_elt "\n " <$> const "\n " in
     sep_by0 ~sep (while0 is_not_lf)
 
   let extra =
-    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (Iso.chare ' ' <$> char))
-    <*> (value <* (Iso.chare '\x0a' <$> char))
+    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (Iso.char_elt ' ' <$> any))
+    <*> (value <* (Iso.char_elt '\x0a' <$> any))
 
   let binding ?key value =
-    let value = (value <$> (while1 is_not_lf <* (Iso.chare '\x0a' <$> char))) in
+    let value = (value <$> (while1 is_not_lf <* (Iso.char_elt '\x0a' <$> any))) in
 
     match key with
     | Some key ->
-      ((string key) <* (Iso.chare ' ' <$> char)) <*> value
+      ((const key) <* (Iso.char_elt ' ' <$> any)) <*> value
     | None ->
-      (while1 is_not_sp <* (Iso.chare ' ' <$> char)) <*> value
+      (while1 is_not_sp <* (Iso.char_elt ' ' <$> any)) <*> value
 
   let user_of_string =
     make_exn
@@ -324,14 +325,14 @@ struct
   let tree = Iso.tree <$> (rep0 entry)
   let tag = (Exn.compose obj5 Iso.tag) <$> tag
   let commit = (Exn.compose obj6 Iso.commit) <$> commit
-  let blob = (Exn.compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
+  let blob = (Exn.compose Iso.cstruct Iso.blob) <$> (bigstring_while0 (fun _ -> true))
 
   let length = Iso.int64 <$> while1 is_digit
 
   let git =
     let value kind p =
-      ((Iso.kind <$> string kind) <* (Iso.chare ' ' <$> char))
-      <*> (length <* (Iso.chare '\x00' <$> char))
+      ((Iso.kind <$> const kind) <* (Iso.char_elt ' ' <$> any))
+      <*> (length <* (Iso.char_elt '\x00' <$> any))
       <*> p in
 
     (Exn.compose obj3 Iso.git)
@@ -490,8 +491,8 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                 let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> char
-                 let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> char
+                 let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> any
+                 let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> any
                  let p : sentinel S.t = a *> b end end))
         Alcotest.unit () "ab"
     ; make_test "( <* )"
@@ -503,8 +504,8 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                 let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> char
-                 let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> char
+                 let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> any
+                 let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> any
                  let p : sentinel S.t = a <* b end end))
         Alcotest.unit () "ab"
     ; (let combinator =
@@ -516,9 +517,9 @@ let combinator =
                 functor (S: Meta.S) -> struct
                   include Meta.Make(S)
 
-                  let a = Exn.subset ((=) 'a') <$> char
-                  let b = Exn.subset ((=) 'b') <$> char
-                  let c = Exn.subset ((=) 'c') <$> char
+                  let a = Exn.subset ((=) 'a') <$> any
+                  let b = Exn.subset ((=) 'b') <$> any
+                  let c = Exn.subset ((=) 'c') <$> any
                   let p : sentinel S.t = choice [ a; b; c; ] end end) : COMBINATOR with type sentinel = char) in
        List.concat
          [ make_test "choice" combinator Alcotest.char 'a' "a"
@@ -533,7 +534,7 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                 let p : sentinel S.t = option char end end))
+                 let p : sentinel S.t = option any end end))
         Alcotest.(option char) (Some 'a') "a"
     ; (let combinator =
          (module
@@ -544,7 +545,7 @@ let combinator =
                 functor (S: Meta.S) -> struct
                   include Meta.Make(S)
 
-                  let p : sentinel S.t = count 3 char end end) : COMBINATOR with type sentinel = char list) in
+                  let p : sentinel S.t = count 3 any end end) : COMBINATOR with type sentinel = char list) in
        List.concat
          [ make_test "count" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar" ])
     ; (let combinator =
@@ -556,7 +557,7 @@ let combinator =
                 functor (S: Meta.S) -> struct
                   include Meta.Make(S)
 
-                  let p : sentinel S.t = rep0 char end end) : COMBINATOR with type sentinel = char list) in
+                  let p : sentinel S.t = rep0 any end end) : COMBINATOR with type sentinel = char list) in
        List.concat
          [ make_test "rep0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
          ; make_test "rep0" combinator Alcotest.(list char) [] "" ])
@@ -569,7 +570,7 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                 let p : sentinel S.t = rep1 char end end))
+                 let p : sentinel S.t = rep1 any end end))
         Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
     ; (let combinator =
          (module
@@ -580,8 +581,8 @@ let combinator =
                 functor (S: Meta.S) -> struct
                   include Meta.Make(S)
 
-                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
-                  let p : sentinel S.t = sep_by0 ~sep:comma char end end) : COMBINATOR with type sentinel = char list) in
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+                  let p : sentinel S.t = sep_by0 ~sep:comma any end end) : COMBINATOR with type sentinel = char list) in
        List.concat
          [ make_test "sep_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
          ; make_test "sep_by0" combinator Alcotest.(list char) [] "" ])
@@ -594,8 +595,8 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
-                 let p : sentinel S.t = sep_by1 ~sep:comma char end end))
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+                 let p : sentinel S.t = sep_by1 ~sep:comma any end end))
         Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
     ; (let combinator =
          (module
@@ -606,8 +607,8 @@ let combinator =
                 functor (S: Meta.S) -> struct
                   include Meta.Make(S)
 
-                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
-                  let p : sentinel S.t = end_by0 ~sep:comma char end end) : COMBINATOR with type sentinel = char list) in
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+                  let p : sentinel S.t = end_by0 ~sep:comma any end end) : COMBINATOR with type sentinel = char list) in
        List.concat
          [ make_test "end_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
          ; make_test "end_by0" combinator Alcotest.(list char) [] ""
@@ -621,8 +622,8 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> char
-                 let p : sentinel S.t = end_by1 ~sep:comma char end end))
+                  let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+                 let p : sentinel S.t = end_by1 ~sep:comma any end end))
         Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
     ; make_test "sequence"
         (module
@@ -633,7 +634,7 @@ let combinator =
                functor (S: Meta.S) -> struct
                  include Meta.Make(S)
 
-                 let p : sentinel S.t = sequence [char; char; char; ] end end))
+                 let p : sentinel S.t = sequence [ any; any; any; ] end end))
         Alcotest.(list char) ['b'; 'a'; 'r'; ] "bar" ]
 
 let main () =

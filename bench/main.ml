@@ -84,10 +84,10 @@ struct
       ~bwd:(function Git.Value.Tree l -> Git.Value.Tree.to_list l
                    | _ -> Bijection.Exn.fail "tree" "entry list")
 
-  let chare chr =
-    Bijection.Exn.element ~tag:"char" ~compare:Char.equal chr
+  let char_elt chr =
+    Bijection.Exn.element ~tag:(Fmt.strf "char:%02x" (Char.code chr)) ~compare:Char.equal chr
 
-  let stringe str =
+  let string_elt str =
     Bijection.Exn.element ~tag:"string" ~compare:String.equal str
 
   let cstruct =
@@ -223,20 +223,20 @@ struct
           ~tag:("unit", "`plus")
           ~fwd:(fun () -> `Plus)
           ~bwd:(function `Plus -> () | _ -> Bijection.Exn.fail "`plus" "unit")
-        <$> (Iso.chare '+' <$> char) in
+        <$> (Iso.char_elt '+' <$> any) in
       let minus =
         make_exn
           ~tag:("unit", "`minus")
           ~fwd:(fun () -> `Minus)
           ~bwd:(function `Minus -> () | _ -> Bijection.Exn.fail "`minus" "unit")
-        <$> (Iso.chare '-' <$> char) in
+        <$> (Iso.char_elt '-' <$> any) in
       let digit2 =
         make_exn
           ~tag:("char * char", "int")
           ~fwd:(function ('0' .. '9' as a), ('0' .. '9' as b) -> (Char.code a - 48) * 10 + (Char.code b - 48)
                        | _, _ -> Bijection.Exn.fail "char * char" "int")
           ~bwd:(fun n -> Char.chr (n / 10 + 48), Char.chr (n mod 10 + 48))
-        <$> ((satisfy is_digit) <*> (satisfy is_digit)) in
+        <$> ((Exn.subset is_digit <$> any) <*> (Exn.subset is_digit <$> any)) in
       (Exn.compose obj3 Iso.tz_offset) <$> ((plus <|> minus) <*> digit2 <*> digit2)
 
     let chop =
@@ -247,9 +247,9 @@ struct
 
     let user =
       (Exn.compose obj4 Iso.user) <$>
-      ((chop <$> ((while1 is_not_lt) <* (Iso.chare '<' <$> char)))
-       <*> ((while1 is_not_gt) <* (Iso.stringe "> " <$> string "> "))
-       <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.chare ' ' <$> char))
+      ((chop <$> ((while1 is_not_lt) <* (Iso.char_elt '<' <$> any)))
+       <*> ((while1 is_not_gt) <* (Iso.string_elt "> " <$> const "> "))
+       <*> ((Iso.int64 <$> while1 is_digit) <* (Iso.char_elt ' ' <$> any))
        <*> date)
   end
 
@@ -272,30 +272,31 @@ struct
   let hex = Iso.hex <$> (take (Git.Hash.Digest.length * 2))
   let perm = Iso.perm <$> (while1 is_not_sp)
   let name = while1 is_not_nl
-  let kind = Iso.kind <$> (string "tree" <|> string "commit" <|> string "tag" <|> string "blob")
+  let kind =
+    Iso.kind <$> (const "tree" <|> const "commit" <|> const "tag" <|> const "blob")
 
   let entry =
     Iso.entry <$>
-    ((perm <* (Iso.chare ' ' <$> char))
-     <*> (name <* (Iso.chare '\x00' <$> char))
+    ((perm <* (Iso.char_elt ' ' <$> any))
+     <*> (name <* (Iso.char_elt '\x00' <$> any))
      <*> hash)
 
   let value =
-    let sep = Iso.stringe "\n " <$> string "\n " in
+    let sep = Iso.string_elt "\n " <$> const "\n " in
     sep_by0 ~sep (while0 is_not_lf)
 
   let extra =
-    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (Iso.chare ' ' <$> char))
-    <*> (value <* (Iso.chare '\x0a' <$> char))
+    (while1 (fun chr -> (is_not_sp chr) && (is_not_lf chr)) <* (Iso.char_elt ' ' <$> any))
+    <*> (value <* (Iso.char_elt '\x0a' <$> any))
 
   let binding ?key value =
-    let value = (value <$> (while1 is_not_lf <* (Iso.chare '\x0a' <$> char))) in
+    let value = (value <$> (while1 is_not_lf <* (Iso.char_elt '\x0a' <$> any))) in
 
     match key with
     | Some key ->
-      ((string key) <* (Iso.chare ' ' <$> char)) <*> value
+      ((const key) <* (Iso.char_elt ' ' <$> any)) <*> value
     | None ->
-      (while1 is_not_sp <* (Iso.chare ' ' <$> char)) <*> value
+      (while1 is_not_sp <* (Iso.char_elt ' ' <$> any)) <*> value
 
   let user_of_string =
     make_exn
@@ -323,14 +324,14 @@ struct
   let tree = Iso.tree <$> (rep0 entry)
   let tag = (Exn.compose obj5 Iso.tag) <$> tag
   let commit = (Exn.compose obj6 Iso.commit) <$> commit
-  let blob = (Exn.compose Iso.cstruct Iso.blob) <$> (bwhile0 (fun _ -> true))
+  let blob = (Exn.compose Iso.cstruct Iso.blob) <$> (bigstring_while0 (fun _ -> true))
 
   let length = Iso.int64 <$> while1 is_digit
 
   let git =
     let value kind p =
-      ((Iso.kind <$> string kind) <* (Iso.chare ' ' <$> char))
-      <*> (length <* (Iso.chare '\x00' <$> char))
+      ((Iso.kind <$> const kind) <* (Iso.char_elt ' ' <$> any))
+      <*> (length <* (Iso.char_elt '\x00' <$> any))
       <*> p in
 
     (Exn.compose obj3 Iso.git)
