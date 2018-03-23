@@ -67,6 +67,8 @@ sig
 
   val fail: string -> string -> 'a
 
+  val of_option: ('a, 'b) topt -> ('a, 'b) texn
+
   val compose: ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
   val ( % ): ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
 

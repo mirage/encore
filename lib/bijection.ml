@@ -241,6 +241,16 @@ struct
              ~fwd:(safe_exn tag bool_of_string)
              ~bwd:(safe_exn (flip tag) string_of_bool)
 
+  let of_option t =
+    { to_ = (fun x -> match t.to_ x with
+                      | Some x -> x
+                      | None -> fail (fst t.tag) (snd t.tag))
+    ; of_ = (fun x -> match t.of_ x with
+                      | Some x -> x
+                      | None -> fail (snd t.tag) (fst t.tag))
+    ; kd = E
+    ; tag = t.tag }
+
   let fst = _fst
   let snd = _snd
 end
