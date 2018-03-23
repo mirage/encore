@@ -2,32 +2,37 @@ module type S =
 sig
   type 'a t
 
-  val ( <$> ) : ('a, 'b) Bijection.texn -> 'a t -> 'b t
-  val ( <*> ) : 'a t -> 'b t -> ('a * 'b) t
-  val ( <|> ) : 'a t -> 'a t -> 'a t
+  val ( <$> ): ('a, 'b) Bijection.texn -> 'a t -> 'b t
+  val ( <*> ): 'a t -> 'b t -> ('a * 'b) t
+  val ( <|> ): 'a t -> 'a t -> 'a t
 
-  val ( *> )  : unit t -> 'a t -> 'a t
-  val ( <* )  : 'a t -> unit t -> 'a t
+  val ( *> ): unit t -> 'a t -> 'a t
+  val ( <* ): 'a t -> unit t -> 'a t
 
-  val ( $> )  : unit t -> (unit, 'a) Bijection.texn -> 'a t
-  val ( <$ )  : 'a t -> (unit, 'a) Bijection.texn -> unit t
+  val ( $> ): unit t -> (unit, 'a) Bijection.texn -> 'a t
+  val ( <$ ): 'a t -> (unit, 'a) Bijection.texn -> unit t
 
-  val fix     : ('a t -> 'a t) -> 'a t
-  val nop     : unit t
-  val fail    : string -> 'a t
-  val pure    : compare:('a -> 'a -> int) -> 'a -> 'a t
-  val skip    : 'a t -> unit t
-  val take    : int -> string t
-  val char    : char t
-  val peek    : 'a t -> 'b t -> ('a, 'b) Either.t t
+  val fix: ('a t -> 'a t) -> 'a t
+  val nop: unit t
+  val any: char t
 
-  val satisfy : (char -> bool) -> char t
-  val string  : string -> string t
+  val fail: string -> 'a t
+  val pure: compare:('a -> 'a -> int) -> 'a -> 'a t
+  val take: int -> string t
+  val peek: 'a t -> 'b t -> ('a, 'b) Either.t t
+  val skip: 'a t -> unit t
 
-  val while0  : (char -> bool) -> string t
-  val while1  : (char -> bool) -> string t
-  val bwhile0 : (char -> bool) -> Encoder.bigstring t
-  val bwhile1 : (char -> bool) -> Encoder.bigstring t
+  val const: string -> string t
+
+  val commit: unit t
+
+  val while0: (char -> bool) -> string t
+  val while1: (char -> bool) -> string t
+  val bigstring_while0: (char -> bool) -> Encoder.bigstring t
+  val bigstring_while1: (char -> bool) -> Encoder.bigstring t
+
+  val buffer: string t
+  val bigstring_buffer: Encoder.bigstring t
 
   module Option:
   sig
@@ -127,8 +132,8 @@ struct
   let is_digit = function '0' .. '9' -> true | _ -> false
   let is_alpha = function 'a'.. 'z' | 'A' .. 'Z' -> true | _ -> false
 
-  let lower = Exn.subset is_lower <$> char
-  let upper = Exn.subset is_upper <$> char
-  let digit = Exn.subset is_digit <$> char
-  let alpha = Exn.subset is_alpha <$> char
+  let lower = Exn.subset is_lower <$> any
+  let upper = Exn.subset is_upper <$> any
+  let digit = Exn.subset is_digit <$> any
+  let alpha = Exn.subset is_alpha <$> any
 end
