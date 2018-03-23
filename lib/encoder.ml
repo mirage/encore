@@ -64,19 +64,6 @@ let option f : 'a option t =
         | Some v -> f.run k e v
         | None -> k e }
 
-let compose f g = { run = fun k e (x, y) -> f.run (fun e -> g.run k e y) e x }
-
-let using a f =
-  { run = fun k e v -> a.run k e (f v) }
-
-let const a v =
-  { run = fun k e () -> a.run k e v }
-
-let ( >>| ) : 'a t -> ('b -> 'a) -> 'b t = using
-let ( <$> ) : ('b -> 'a) -> 'a t -> 'b t = fun f p -> p >>| f
-let ( <*> ) : 'a t -> 'b t -> ('a * 'b) t = compose
-let ( <!> ) = const
-
 exception Fail of string
 
 let pure ~compare v =
@@ -85,10 +72,19 @@ let pure ~compare v =
 let fail s =
   { run = fun _k _e _v -> raise (Fail s) }
 
+let const s =
+  { run = fun k e s' -> if String.equal s s' then Lole.write_string s' k e else raise (Fail (Fmt.strf "const: %s <> %s" s s')) }
+
 let ( <|> ) pu pv =
   { run = fun k e v ->
         try pu.run k e v
         with Fail _ | Bijection.Exn.Bijection (_, _) -> pv.run k e v }
+
+let ( <$> ) f p =
+  { run = fun k e v -> p.run k e (f v) }
+
+let ( <*> ) a b =
+  { run = fun k e (x, y) -> a.run (fun e -> b.run k e y) e x }
 
 let prefix p r =
   { run = fun k e v -> p.run (fun e -> r.run k e v) e () }
@@ -96,32 +92,38 @@ let prefix p r =
 let suffix s r =
   { run = fun k e v -> r.run (fun e -> s.run k e ()) e v }
 
-let satisfy f =
-  using char (fun x -> match f x with true -> x | false -> raise (Fail (Fmt.strf "satisfy: %c" x)))
-let while0 f =
-  let satisfy s =
-    let l = String.length s in
-    for i = 0 to l - 1
-    do if not (f (String.unsafe_get s i)) then raise (Fail "while0") done;
-    s in
-  using string satisfy
+exception Break
 
-let while1 f =
-  using (while0 f) (fun s -> if String.length s = 0 then raise (Fail "while1"); s)
+let for_all predicate s =
+  let l = String.length s in
 
-let bwhile0 f =
-  let satisfy b =
-    let l = Bigarray.Array1.dim b in
-    for i = 0 to l - 1
-    do if not (f (Bigarray.Array1.unsafe_get b i)) then raise (Fail "bwhile0") done;
-    b in
-  using bigstring satisfy
+  try for i = 0 to l - 1 do if not (predicate (String.unsafe_get s i)) then raise Break done; true
+  with Break -> false
 
-let bwhile1 f =
-  using (bwhile0 f) (fun b -> if Bigarray.Array1.dim b = 0 then raise (Fail "bwhile1"); b)
+let while0 predicate =
+  { run = fun k e v -> if for_all predicate v then Lole.write_string v k e else raise (Fail "while0") }
+
+let while1 predicate =
+  { run = fun k e v -> if String.length v > 0 && for_all predicate v then Lole.write_string v k e else raise (Fail "while1") }
+
+let for_all predicate b =
+  let l = Bigarray.Array1.dim b in
+
+  try for i = 0 to l - 1 do if not (predicate (Bigarray.Array1.get b i)) then raise Break done; true
+  with Break -> false
+
+let bigstring_while0 predicate =
+  { run = fun k e v -> if for_all predicate v then Lole.write_bigstring v k e else raise (Fail "bigstring_while0") }
+
+let bigstring_while1 predicate =
+  { run = fun k e v -> if Bigarray.Array1.dim v > 0 && for_all predicate v then Lole.write_bigstring v k e else raise (Fail "bigstring_while1") }
 
 let take n =
+  (* XXX(dinosaure): Angstrom.take consumes input, so [take] should produce output. *)
   { run = fun k e s -> if String.length s = n then string.run k e s else raise (Fail "take") }
+
+let buffer = string
+let bigstring_buffer = bigstring
 
 let ( <* ) r s = suffix s r
 let ( *> ) p r = prefix p r
@@ -131,28 +133,7 @@ let fix f =
   and r = { run = fun k e v -> Lazy.(force p).run k e v } in
   r
 
-let run : 'a t -> (encoder -> 'r state) -> encoder -> 'a -> 'r state = fun p k e v -> p.run k e v
-
-let l_brack = string <!> "["
-let r_brack = string <!> "]"
-let l_paren = string <!> "("
-let r_paren = string <!> ")"
-let l_brace = string <!> "{"
-let r_brace = string <!> "}"
-
-let from : ('a -> 'u t) -> 'a t = fun f -> { run = fun k e v -> (f v).run k e v }
-
-let newline = int8 <!> 0x0a
-let flush a = { run = fun k e v -> a.run (fun e -> Lole.flush k e) e v }
-
-let bracks a = l_brack *> a <* r_brack
-let parens a = l_paren *> a <* r_paren
-let braces a = l_brace *> a <* r_brace
-let between : unit t -> unit t -> 'a t -> 'a t = fun p s a -> p *> a <* s
-
-let dquote = char <!> '"'
-let comma = char <!> ','
-let colon = char <!> ':'
+let commit = { run = fun k e () -> Lole.flush k e }
 
 let keval
   : 'v 'r. (encoder -> 'r state) -> (iovecs -> int) -> encoder -> 'v t -> 'v -> 'r
@@ -166,7 +147,7 @@ let keval
         continue len |> go in
     t.run k e v |> go
 
-let eval w e t v = keval (fun _e -> Lole.End ()) w e (flush t) v
+let eval w e t v = keval (fun _e -> Lole.End ()) w e (t <* commit) v
 
 let to_string : type a. a t -> a -> string
   = fun t v ->
