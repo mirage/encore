@@ -68,4 +68,5 @@ val commit: unit t
 
 val keval: (encoder -> 'r state) -> (iovecs -> int) -> encoder -> 'v t -> 'v -> 'r
 val eval: (iovecs -> int) -> encoder -> 'v t -> 'v -> unit
+val run: 'a t -> (encoder -> 'r state) -> encoder -> 'a -> 'r state
 val to_string: 'v t -> 'v -> string

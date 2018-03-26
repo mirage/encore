@@ -149,6 +149,8 @@ let keval
 
 let eval w e t v = keval (fun _e -> Lole.End ()) w e (t <* commit) v
 
+let run t = t.run
+
 let to_string : type a. a t -> a -> string
   = fun t v ->
     let buf = Buffer.create 16 in
