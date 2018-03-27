@@ -1,5 +1,3 @@
-let () = Printexc.record_backtrace true
-
 type vec =
   { off : int option
   ; len : int option }
