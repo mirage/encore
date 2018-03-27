@@ -1,3 +1,5 @@
+let () = Printexc.record_backtrace true
+
 type vec =
   { off : int option
   ; len : int option }
@@ -150,6 +152,8 @@ let keval
 let eval w e t v = keval (fun _e -> Lole.End ()) w e (t <* commit) v
 
 let run t = t.run
+
+module Make (S: sig type a val run: (encoder -> 'r state) -> encoder -> a -> 'r state end) = struct let x = { run = S.run } end
 
 let to_string : type a. a t -> a -> string
   = fun t v ->

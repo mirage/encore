@@ -66,6 +66,8 @@ val (<* ): 'a t -> unit t -> 'a t
 val fix: ('a t -> 'a t) -> 'a t
 val commit: unit t
 
+module Make: functor (S: sig type a val run: (encoder -> 'r state) -> encoder -> a -> 'r state end) -> sig val x: S.a t end
+
 val keval: (encoder -> 'r state) -> (iovecs -> int) -> encoder -> 'v t -> 'v -> 'r
 val eval: (iovecs -> int) -> encoder -> 'v t -> 'v -> unit
 val run: 'a t -> (encoder -> 'r state) -> encoder -> 'a -> 'r state
