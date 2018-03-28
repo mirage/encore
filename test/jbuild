@@ -1,6 +1,6 @@
 (executables
  ((names (test))
-  (libraries (alcotest alcotest-lwt git-unix encore))
+  (libraries (alcotest encore))
 ))
 
 (alias
