@@ -8,10 +8,18 @@ let iso =
     Alcotest.test_case (Fmt.strf "%s (fwd)" global)
       `Quick
       (fun () -> Alcotest.(check value) (Fmt.strf "%a" (Alcotest.pp value) expect) expect (fwd t input)) in
+  let test_reject_fwd ~global ~name ~exn t input =
+    Alcotest.test_case (Fmt.strf "%s (fwd)" global)
+      `Quick
+      (fun () -> Alcotest.check_raises name exn (fun () -> ignore @@ fwd t input)) in
   let test_bwd ~global value t input expect =
     Alcotest.test_case (Fmt.strf "%s (bwd)" global)
       `Quick
       (fun () -> Alcotest.(check value) (Fmt.strf "%a" (Alcotest.pp value) expect) expect (fwd t input)) in
+  let test_reject_bwd ~global ~name ~exn t input =
+    Alcotest.test_case (Fmt.strf "%s (fwd)" global)
+      `Quick
+      (fun () -> Alcotest.check_raises name exn (fun () -> ignore @@ bwd t input)) in
   [ test_fwd ~global:"string"   Alcotest.string          Exn.string                    "foo"      ['f'; 'o'; 'o'; ]
   ; test_fwd ~global:"string"   Alcotest.string          Exn.string                    ""         []
   ; test_bwd ~global:"string"   Alcotest.string          Exn.string                    ['f'; 'o'; 'o'; ] "foo"
@@ -20,10 +28,14 @@ let iso =
   ; test_bwd ~global:"int"      Alcotest.int             Exn.int                       "42"       42
   ; test_fwd ~global:"int"      Alcotest.int             Exn.int                       (-42)      "-42"
   ; test_bwd ~global:"int"      Alcotest.int             Exn.int                       "-42"      (-42)
+  ; test_reject_fwd ~global:"int"     ~name:"empty string" ~exn:(Bijection.Exn.Bijection ("string", "int")) Exn.int ""
+  ; test_reject_fwd ~global:"int"     ~name:"invalid"      ~exn:(Bijection.Exn.Bijection ("string", "int")) Exn.int "invalid"
   ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                      true       "true"
   ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                      "true"     true
   ; test_fwd ~global:"bool"     Alcotest.bool            Exn.bool                      false      "false"
   ; test_bwd ~global:"bool"     Alcotest.bool            Exn.bool                      "false"    false
+  ; test_reject_fwd ~global:"bool"    ~name:"empty string" ~exn:(Bijection.Exn.Bijection ("string", "bool")) Exn.bool ""
+  ; test_reject_fwd ~global:"bool"    ~name:"invalid"      ~exn:(Bijection.Exn.Bijection ("string", "bool")) Exn.bool "invalid"
   ; test_fwd ~global:"identity" Alcotest.int             Exn.identity                  42         42
   ; test_bwd ~global:"identity" Alcotest.int             Exn.identity                  42         42
   ; test_fwd ~global:"commute"  Alcotest.(pair int int)  Exn.commute                   (1, 2)     (2, 1)
@@ -34,6 +46,12 @@ let iso =
   ; test_fwd ~global:"inverse"  Alcotest.string          (flip Exn.int)                "42"       42
   ; test_bwd ~global:"inverse"  Alcotest.int             Exn.int                       "42"       42
   ; test_fwd ~global:"product"  Alcotest.(pair int bool) (product Exn.int Exn.bool)    (42, true) ("42", "true")
+  ; test_reject_fwd ~global:"product" ~name:"empty string" ~exn:(Bijection.Exn.Bijection ("string", "int"))  (product Exn.int Exn.bool) ("invalid", "true")
+  ; test_reject_fwd ~global:"product" ~name:"empty string" ~exn:(Bijection.Exn.Bijection ("string", "bool")) (product Exn.int Exn.bool) ("true", "invalid")
+  ; test_fwd ~global:"subset"   Alcotest.char            (Exn.subset ((=) 'a'))        'a'       'a'
+  ; test_bwd ~global:"subset"   Alcotest.char            (Exn.subset ((=) 'a'))        'a'       'a'
+  ; test_reject_fwd ~global:"subset" ~name:"a" ~exn:(Bijection.Exn.Bijection ("a with predicate", "x"))  (Exn.subset ((=) 'a')) 'b'
+  ; test_reject_bwd ~global:"subset" ~name:"a" ~exn:(Bijection.Exn.Bijection ("a with predicate", "x"))  (Exn.subset ((=) 'a')) 'b'
   ; ]
 
 module type COMBINATOR =
@@ -76,6 +94,25 @@ let combinator =
     ; Alcotest.test_case name `Quick
         (fun () ->
           Alcotest.(check string) "encode" (to_string sentinel) s) ] in
+
+  let make_reject
+      : type sentinel.
+             string
+             -> (module COMBINATOR with type sentinel = sentinel)
+             -> sentinel
+             -> string
+             -> unit Alcotest.test_case list
+    = fun name (module Combinator) sentinel s ->
+    let to_string, of_string = make (module Combinator) in
+
+    [ Alcotest.test_case name `Quick
+        (fun () ->
+          try let _ = of_string s in Alcotest.failf "test %s works" name
+          with _ -> ())
+    ; Alcotest.test_case name `Quick
+        (fun () ->
+          try let _ = to_string sentinel in Alcotest.failf "test %s works" name
+          with _ -> ()) ] in
 
   let open Bijection in
 
@@ -122,18 +159,34 @@ let combinator =
        List.concat
          [ make_test "choice" combinator Alcotest.char 'a' "a"
          ; make_test "choice" combinator Alcotest.char 'b' "b"
-         ; make_test "choice" combinator Alcotest.char 'c' "c" ])
-    ; make_test "option"
-        (module
-           (struct
-             type sentinel = char option
+         ; make_test "choice" combinator Alcotest.char 'c' "c"
+         ; make_reject "choice" combinator 'd' "d" ])
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char option
 
-             module Make =
-               functor (S: Meta.S) -> struct
-                 include Meta.Make(S)
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
 
-                 let p : sentinel S.t = option any end end))
-        Alcotest.(option char) (Some 'a') "a"
+                  let p : sentinel S.t = option any end end) : COMBINATOR with type sentinel = char option) in
+       let fail =
+         (module
+            (struct
+              type sentinel = unit option
+
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
+
+                  let p : sentinel S.t = option (fail "error") end end) : COMBINATOR with type sentinel = unit option) in
+        List.concat
+          [ make_test "option" combinator Alcotest.(option char) (Some 'a') "a"
+          ; make_reject "option (reject)" fail (Some ()) ""
+          ; make_reject "option (reject)" fail None ""
+          ; make_reject "option (reject)" fail (Some ()) "42"
+          ; make_reject "option (reject)" fail None "42" ])
     ; (let combinator =
          (module
             (struct
@@ -159,17 +212,19 @@ let combinator =
        List.concat
          [ make_test "rep0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
          ; make_test "rep0" combinator Alcotest.(list char) [] "" ])
-    ; make_test "rep1"
-        (module
-           (struct
-             type sentinel = char list
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
 
-             module Make =
-               functor (S: Meta.S) -> struct
-                 include Meta.Make(S)
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
 
-                 let p : sentinel S.t = rep1 any end end))
-        Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
+                  let p : sentinel S.t = rep1 any end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "rep1" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "bar"
+         ; make_reject "rep1 (reject)" combinator [] "" ])
     ; (let combinator =
          (module
             (struct
@@ -184,18 +239,20 @@ let combinator =
        List.concat
          [ make_test "sep_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
          ; make_test "sep_by0" combinator Alcotest.(list char) [] "" ])
-    ; make_test "sep_sep1"
-        (module
-           (struct
-             type sentinel = char list
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
 
-             module Make =
-               functor (S: Meta.S) -> struct
-                 include Meta.Make(S)
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
 
                   let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
-                 let p : sentinel S.t = sep_by1 ~sep:comma any end end))
-        Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
+                  let p : sentinel S.t = sep_by1 ~sep:comma any end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "sep_by1" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r"
+         ; make_reject "sep_by1 (reject)" combinator [] "" ])
     ; (let combinator =
          (module
             (struct
@@ -211,18 +268,20 @@ let combinator =
          [ make_test "end_by0" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
          ; make_test "end_by0" combinator Alcotest.(list char) [] ""
          ; make_test "end_by0" combinator Alcotest.(list char) [ 'b' ] "b," ])
-    ; make_test "sep_sep1"
-        (module
-           (struct
-             type sentinel = char list
+    ; (let combinator =
+         (module
+            (struct
+              type sentinel = char list
 
-             module Make =
-               functor (S: Meta.S) -> struct
-                 include Meta.Make(S)
+              module Make =
+                functor (S: Meta.S) -> struct
+                  include Meta.Make(S)
 
                   let comma = Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
-                 let p : sentinel S.t = end_by1 ~sep:comma any end end))
-        Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
+                  let p : sentinel S.t = end_by1 ~sep:comma any end end) : COMBINATOR with type sentinel = char list) in
+       List.concat
+         [ make_test "end_by1" combinator Alcotest.(list char) [ 'b'; 'a'; 'r'; ] "b,a,r,"
+         ; make_reject "end_by1" combinator [] "" ])
     ; make_test "sequence"
         (module
            (struct
