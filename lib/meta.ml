@@ -20,7 +20,6 @@ sig
   val pure: compare:('a -> 'a -> int) -> 'a -> 'a t
   val take: int -> string t
   val peek: 'a t -> 'b t -> ('a, 'b) Either.t t
-  val skip: 'a t -> unit t
 
   val const: string -> string t
 
@@ -58,8 +57,6 @@ sig
   val sep_by1: sep:unit t -> 'a t -> 'a list t
   val end_by0: sep:unit t -> 'a t -> 'a list t
   val end_by1: sep:unit t -> 'a t -> 'a list t
-  val sep_end_by0: sep:unit t -> 'a t -> 'a list t
-  val sep_end_by1: sep:unit t -> 'a t -> 'a list t
 
   val lower: char t
   val upper: char t
@@ -117,12 +114,6 @@ struct
 
   let end_by0 ~sep p =
     rep0 (p <* sep)
-
-  let sep_end_by1 ~sep p =
-    sep_by1 ~sep p <* skip (option sep)
-
-  let sep_end_by0 ~sep p =
-    sep_by0 ~sep p <* skip (option sep)
 
   let between x y v =
     x *> v <* y
