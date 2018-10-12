@@ -1,1 +1,1 @@
-module Impl: Meta.S with type 'a t = 'a Angstrom.t
+module Impl : Meta.S with type 'a t = 'a Angstrom.t
