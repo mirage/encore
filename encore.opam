@@ -9,13 +9,13 @@ doc:          "https://dinosaure.github.io/encore/"
 license:      "MIT"
 
 build: [
-  ["jbuilder" "subst" "-n" name] {pinned}
-  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["dune" "subst"]
+  ["dune" "build" "-j" jobs]
 ]
-build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
+build-test: [["dune" "runtest" "-j" jobs]]
 
 depends: [
-  "jbuilder" {build & >="1.0+beta9"}
+  "dune" {build}
   "angstrom" {>= "0.9.0"}
   "ocplib-endian"
   "fmt"
