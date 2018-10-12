@@ -1,9 +1,0 @@
-(executables
- ((names (main))
-  (libraries (git-unix encore core core_bench))
-))
-
-(alias
-((name    runbench)
-  (deps    (main.exe))
-  (action  (run ${<} ))))
