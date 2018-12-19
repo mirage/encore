@@ -54,37 +54,7 @@ val pp_bytes : Bytes.t Fmt.t
 
 val pp_bigstring : bigstring Fmt.t
 
-module RBA : sig
-  type t
-
-  val is_power_of_two : int -> bool
-
-  val create : int -> t
-
-  val pp : t Fmt.t
-
-  module N : sig
-    val push :
-         t
-      -> blit:'value blitter
-      -> length:('value -> int)
-      -> ?off:int
-      -> ?len:int
-      -> 'value
-      -> bigstring list * t
-
-    val keep :
-         t
-      -> blit:(bigstring -> int -> 'value -> int -> int -> unit)
-      -> length:('value -> int)
-      -> ?off:int
-      -> ?len:int
-      -> 'value
-      -> unit
-
-    val shift : t -> int -> t
-  end
-end
+module RBA : Ke.Sigs.Weighted.F
 
 module Buffer : sig
   type t = Bigstring of bigstring | String of string | Bytes of Bytes.t

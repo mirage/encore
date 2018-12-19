@@ -1,9 +1,0 @@
-(executables
- ((names (test))
-  (libraries (alcotest encore))
-))
-
-(alias
-((name    runtest)
-  (deps    (test.exe))
-  (action  (run ${<}))))
