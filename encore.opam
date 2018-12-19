@@ -26,5 +26,6 @@ depends: [
   "angstrom" {>= "0.9.0"}
   "ocplib-endian"
   "fmt"
+  "ke"
   "alcotest" {with-test}
 ]
