@@ -9,3 +9,4 @@ env:
   - PINS="ke:https://github.com/dinosaure/ke.git" 
   matrix:
   - PACKAGE="encore" OPAM_VERBOSE=1 ALCOTEST_VERBOSE=1 OCAML_VERSION=4.06 TESTS=true
+  - PACKAGE="encore" OPAM_VERBOSE=1 ALCOTEST_VERBOSE=1 OCAML_VERSION=4.07 TESTS=true
