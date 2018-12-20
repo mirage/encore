@@ -2,6 +2,11 @@ module Option = struct
   let map_default default f = function Some v -> f v | None -> default
 end
 
+module Is_a_sub = struct
+  type ('a, 'b) bigarray = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
+  external is_a_sub : ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool = "caml_is_a_sub" [@@noalloc]
+end
+
 module type VALUE = sig
   type t
 
@@ -91,86 +96,7 @@ let pp_bytes = pp_scalar ~get:Bytes.get ~length:Bytes.length
 let pp_bigstring =
   pp_scalar ~get:Bigarray.Array1.get ~length:Bigarray.Array1.dim
 
-module RBA = struct
-  type t = {r: int; w: int; c: int; b: bigstring}
-
-  let is_power_of_two x = x <> 0 && x land (lnot x + 1) = x
-
-  let create capacity =
-    if not (is_power_of_two capacity) then
-      invalid_arg "RBA.create: the capacity need to be a power of two" ;
-    { r= 0
-    ; w= 0
-    ; c= capacity
-    ; b= Bigarray.Array1.create Bigarray.char Bigarray.c_layout capacity }
-
-  let[@inline] mask t v = v land (t.c - 1)
-
-  let[@inline] empty t = t.r = t.w
-
-  let[@inline] size t = t.w - t.r
-
-  let[@inline] available t = t.c - (t.w - t.r)
-
-  let[@inline] full t = size t = t.c
-
-  let pp ppf ({r; w; c; b} as t) =
-    let pp_rb r w m ppf b =
-      if mask t r < mask t w then
-        Fmt.pf ppf "%a" (Fmt.hvbox pp_bigstring)
-          (Bigarray.Array1.sub b (mask t r) (w - r))
-      else if empty t then Fmt.pf ppf "<empty>"
-      else
-        Fmt.pf ppf "@[<hov>%a and %a@]" (Fmt.hvbox pp_bigstring)
-          (Bigarray.Array1.sub b (mask t r) (m - mask t r))
-          (Fmt.hvbox pp_bigstring)
-          (Bigarray.Array1.sub b 0 (mask t w))
-    in
-    Fmt.pf ppf "{ @[<hov>r = %d;@ w = %d;@ c = %d;@ b = %a;@] }" r w c
-      (Fmt.hvbox (pp_rb r w c))
-      b
-
-  let push t v =
-    let[@inline] mask t v = v land (t.c - 1) in
-    t.b.{(mask [@inlined]) t t.w} <- v ;
-    {t with w= t.w + 1}
-
-  let shift t _ =
-    let[@inline] mask t v = v land (t.c - 1) in
-    let r = t.b.{(mask [@inlined]) t t.r} in
-    (r, {t with r= t.r + 1})
-
-  module N = struct
-    let push t ~blit ~length ?(off = 0) ?len v =
-      let len = match len with None -> length v | Some len -> len in
-      let[@inline] mask t v = v land (t.c - 1) in
-      let pre = t.c - (mask [@inlined]) t t.w in
-      let extra = len - pre in
-      let areas =
-        if extra > 0 then (
-          blit v off t.b ((mask [@inlined]) t t.w) pre ;
-          blit v (off + pre) t.b 0 extra ;
-          [ Bigarray.Array1.sub t.b ((mask [@inlined]) t t.w) pre
-          ; Bigarray.Array1.sub t.b 0 extra ] )
-        else (
-          blit v off t.b ((mask [@inlined]) t t.w) len ;
-          [Bigarray.Array1.sub t.b ((mask [@inlined]) t t.w) len] )
-      in
-      (areas, {t with w= t.w + len})
-
-    let keep t ~blit ~length ?(off = 0) ?len v =
-      let len = match len with None -> length v | Some len -> len in
-      assert (size t >= len) ;
-      let pre = t.c - mask t t.r in
-      let extra = len - pre in
-      if extra > 0 then (
-        blit t.b (mask t t.r) v off pre ;
-        blit t.b 0 v (off + pre) extra )
-      else blit t.b (mask t t.r) v off len
-
-    let shift t len = {t with r= t.r + len}
-  end
-end
+module RBA = Ke.Fke.Weighted
 
 module Buffer = struct
   type t = Bigstring of bigstring | String of string | Bytes of Bytes.t
@@ -265,14 +191,13 @@ module RBS = RBQ (IOVec)
 
 type encoder =
   { sched: RBS.t
-  ; write: RBA.t
+  ; write: (char, Bigarray.int8_unsigned_elt) RBA.t
   ; flush: (int * (int -> encoder -> unit)) FQueue.t
   ; written: int
   ; received: int }
 
-let pp ppf {sched; write; _} =
-  Fmt.pf ppf "{ @[<hov>sched = %a;@ write = %a;@] }" (Fmt.hvbox RBS.pp) sched
-    (Fmt.hvbox RBA.pp) write
+let pp ppf {sched; _} =
+  Fmt.pf ppf "{ @[<hov>sched = %a;@ write = #queue;@] }" (Fmt.hvbox RBS.pp) sched
 
 type 'v state =
   | Flush of {continue: int -> 'v state; iovecs: IOVec.t list}
@@ -280,22 +205,20 @@ type 'v state =
   | End of 'v
 
 let create len =
+  let write, _ = RBA.create ~capacity:len Bigarray.Char in
   { sched= RBS.make (len * 2)
-  ; write= RBA.create len
+  ; write
   ; flush= FQueue.empty
   ; written= 0
   ; received= 0 }
 
-let check iovec t =
+let check iovec { write; _ } =
+  let open Is_a_sub in
   match iovec with
-  | {IOVec.buffer= Buffer.Bigstring bs; _} ->
-      let be =
-        Bigarray.Array1.sub t.write.RBA.b (Bigarray.Array1.dim t.write.RBA.b) 0
-      in
-      let sub_ptr : int = Obj.magic @@ Obj.field (Obj.repr bs) 1 in
-      let raw_ptr : int = Obj.magic @@ Obj.field (Obj.repr t.write.RBA.b) 1 in
-      let end_ptr : int = Obj.magic @@ Obj.field (Obj.repr be) 1 in
-      sub_ptr >= raw_ptr && sub_ptr <= end_ptr
+  | {IOVec.buffer= Buffer.Bigstring x; _} ->
+    let buf = RBA.unsafe_bigarray  write in
+    let len = Bigarray.Array1.dim buf in
+    is_a_sub x (Bigarray.Array1.dim x) buf len
   | _ -> false
 
 let shift_buffers n t =
@@ -308,14 +231,14 @@ let shift_buffers n t =
             { t with
               sched= shifted
             ; write=
-                (if check iovec t then RBA.N.shift t.write len else t.write) }
+                (if check iovec t then RBA.N.shift_exn t.write len else t.write) }
         else if rest > 0 then
           let last, rest = IOVec.split iovec rest in
           ( List.rev (last :: acc)
           , { t with
               sched= RBS.cons_exn shifted rest
             ; write=
-                ( if check iovec t then RBA.N.shift t.write (IOVec.length last)
+                ( if check iovec t then RBA.N.shift_exn t.write (IOVec.length last)
                 else t.write ) } )
         else (List.rev acc, t)
     | exception RBS.Queue.Empty -> (List.rev acc, t)
@@ -355,11 +278,11 @@ let drain drain t =
             { t with
               sched= shifted
             ; write=
-                (if check iovec t then RBA.N.shift t.write len else t.write) }
+                (if check iovec t then RBA.N.shift_exn t.write len else t.write) }
         else
           { t with
             sched= RBS.cons_exn shifted (IOVec.shift iovec rest)
-          ; write= (if check iovec t then RBA.N.shift t.write rest else t.write)
+          ; write= (if check iovec t then RBA.N.shift_exn t.write rest else t.write)
           }
     | exception RBS.Queue.Empty -> t
   in
@@ -429,7 +352,7 @@ let rec write k ~blit ~length ?(off = 0) ?len buffer t =
   let available = RBA.available t.write in
   (* XXX(dinosaure): we can factorize the first and the second branch. *)
   if available >= len then
-    let areas, write = RBA.N.push t.write ~blit ~length ~off ~len buffer in
+    let areas, write = RBA.N.push_exn t.write ~blit ~length ~off ~len buffer in
     schedulev_bigstring k areas {t with write}
   else if available > 0 then
     let k t =
@@ -437,7 +360,7 @@ let rec write k ~blit ~length ?(off = 0) ?len buffer t =
         ~len:(len - available) buffer t
     in
     let areas, write =
-      RBA.N.push t.write ~blit ~length ~off ~len:available buffer
+      RBA.N.push_exn t.write ~blit ~length ~off ~len:available buffer
     in
     schedulev_bigstring (flush k) areas {t with write}
   else

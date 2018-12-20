@@ -1,0 +1,5 @@
+(library
+ (name Encore)
+ (public_name encore)
+ (flags (:standard -w -32))
+ (libraries is_a_sub ke angstrom fmt ocplib-endian ocplib-endian.bigstring))

@@ -5,5 +5,10 @@ install:
 script: bash -ex .travis-opam.sh
 sudo: true
 env:
+  global:
+  - PINS="ke:https://github.com/dinosaure/ke.git" 
   matrix:
-  - PACKAGE="encore" OPAM_VERBOSE=1 ALCOTEST_VERBOSE=1 PINS="git:https://github.com/dinosaure/ocaml-git.git#encore git-http:https://github.com/dinosaure/ocaml-git.git#encore git-unix:https://github.com/dinosaure/ocaml-git.git#encore" OCAML_VERSION=4.06 TESTS=true
+  - PACKAGE="encore" OCAML_VERSION=4.05 TESTS=false EXTRA_DEPS="mirage-xen"
+  - PACKAGE="encore" OPAM_VERBOSE=1 ALCOTEST_VERBOSE=1 OCAML_VERSION=4.06 TESTS=true
+  - PACKAGE="encore" OCAML_VERSION=4.07 TESTS=false EXTRA_DEPS="mirage-solo5"
+  - PACKAGE="encore" OPAM_VERBOSE=1 ALCOTEST_VERBOSE=1 OCAML_VERSION=4.07 TESTS=true
