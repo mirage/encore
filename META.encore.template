@@ -1,0 +1,4 @@
+# DUNE_GEN
+
+xen_linkopts = "-l:is_a_sub/xen/libis_a_sub_xen_stubs.a"
+freestanding_linkopts = "-l:is_a_sub/freestanding/libis_a_sub_freestanding_stubs.a"

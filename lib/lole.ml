@@ -2,6 +2,11 @@ module Option = struct
   let map_default default f = function Some v -> f v | None -> default
 end
 
+module Is_a_sub = struct
+  type ('a, 'b) bigarray = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
+  external is_a_sub : ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool = "caml_is_a_sub" [@@noalloc]
+end
+
 module type VALUE = sig
   type t
 

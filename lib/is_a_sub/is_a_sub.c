@@ -1,8 +1,7 @@
 #include <caml/mlvalues.h>
 #include <caml/bigarray.h>
 #include <caml/memory.h>
-
-#include <stdio.h>
+#include <stdint.h>
 
 CAMLprim value
 caml_is_a_sub(value va, value valen, value vb, value vblen) {

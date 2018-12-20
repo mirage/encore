@@ -1,0 +1,11 @@
+(library
+ (name        is_a_sub_freestanding)
+ (public_name encore.is_a_sub.freestanding)
+ (optional)
+ (libraries   ocaml-freestanding)
+ (c_names     is_a_sub)
+ (c_flags     (:include cflags.sexp)))
+
+(rule (copy# ../is_a_sub.c is_a_sub.c))
+
+(rule (with-stdout-to cflags.sexp (run ./cflags.sh)))
