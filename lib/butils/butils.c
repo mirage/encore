@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 CAMLprim value
-caml_is_a_sub(value va, value valen, value vb, value vblen) {
+caml_encore_is_a_sub(value va, value valen, value vb, value vblen) {
   CAMLparam4(va, valen, vb, vblen);
 
   uint8_t* a = Caml_ba_data_val(va);
@@ -13,4 +13,14 @@ caml_is_a_sub(value va, value valen, value vb, value vblen) {
   long unsigned blen = Long_val(vblen);
 
   CAMLreturn(Val_bool(a >= b && (a + alen) <= (b + blen)));
+}
+
+CAMLprim value
+caml_encore_bigarray_equal(value va, value vb) {
+  CAMLparam2(va, vb);
+
+  uint8_t* a = Caml_ba_data_val(va);
+  uint8_t* b = Caml_ba_data_val(vb);
+
+  CAMLreturn(Val_bool(a == b));
 }

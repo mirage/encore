@@ -2,10 +2,10 @@ module Option = struct
   let map_default default f = function Some v -> f v | None -> default
 end
 
-module Is_a_sub = struct
-  type ('a, 'b) bigarray = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
-  external is_a_sub : ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool = "caml_is_a_sub" [@@noalloc]
-end
+type ('a, 'b) bigarray = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
+
+external is_a_sub : ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool = "caml_encore_is_a_sub" [@@noalloc]
+external physically_equal : ('a, 'b) bigarray -> ('a, 'b) bigarray -> bool = "caml_encore_bigarray_equal" [@@noalloc]
 
 module type VALUE = sig
   type t
@@ -157,7 +157,7 @@ module IOVec = struct
     match (a, b) with
     | {buffer= Buffer.Bytes a; _}, {buffer= Buffer.Bytes b; _} -> a == b
     | {buffer= Buffer.Bigstring a; _}, {buffer= Buffer.Bigstring b; _} ->
-        a == b
+      physically_equal a b
     | _, _ -> false
 
   let merge a b =
@@ -213,7 +213,6 @@ let create len =
   ; received= 0 }
 
 let check iovec { write; _ } =
-  let open Is_a_sub in
   match iovec with
   | {IOVec.buffer= Buffer.Bigstring x; _} ->
     let buf = RBA.unsafe_bigarray  write in
