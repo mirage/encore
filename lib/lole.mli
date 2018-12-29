@@ -96,6 +96,7 @@ type 'v state =
   | End of 'v
 
 val create : int -> encoder
+val from : int -> bigstring -> encoder
 
 val shift_buffers : int -> encoder -> IOVec.t list * encoder
 
