@@ -22,7 +22,7 @@ module type VALUE = sig
 end
 
 module RBQ (V : VALUE) = struct
-  module Queue = FQueue
+  module Queue : Ke.Sigs.F = Ke.Fke
 
   type t = {c: int; w: int; q: V.t Queue.t}
 
@@ -42,7 +42,7 @@ module RBQ (V : VALUE) = struct
     if w > t.c then Error t else Ok {t with w; q= Queue.push t.q v}
 
   let shift_exn t =
-    match Queue.shift t.q with v, q -> (v, {t with w= t.w - V.weight v; q})
+    match Queue.pop_exn t.q with v, q -> (v, {t with w= t.w - V.weight v; q})
 
   let cons t v =
     let w = t.w + V.weight v in
@@ -54,7 +54,7 @@ module RBQ (V : VALUE) = struct
 
   let weight t = Queue.fold (fun acc x -> acc + V.weight x) 0 t.q
 
-  let to_list t = Queue.to_list t.q
+  let to_list t = Queue.fold (fun a x -> x :: a) [] t.q |> List.rev
 end
 
 type bigstring =
@@ -192,7 +192,7 @@ module RBS = RBQ (IOVec)
 type encoder =
   { sched: RBS.t
   ; write: (char, Bigarray.int8_unsigned_elt) RBA.t
-  ; flush: (int * (int -> encoder -> unit)) FQueue.t
+  ; flush: (int * (int -> encoder -> unit)) Ke.Fke.t
   ; written: int
   ; received: int }
 
@@ -208,7 +208,7 @@ let create len =
   let write, _ = RBA.create ~capacity:len Bigarray.Char in
   { sched= RBS.make (len * 2)
   ; write
-  ; flush= FQueue.empty
+  ; flush= Ke.Fke.empty
   ; written= 0
   ; received= 0 }
 
@@ -247,7 +247,7 @@ let shift_buffers n t =
 let shift_flushes n t =
   let rec aux t =
     try
-      let (threshold, f), flush = FQueue.shift t.flush in
+      let (threshold, f), flush = Ke.Fke.pop_exn t.flush in
       if
         compare (t.written + n - min_int) (threshold - min_int) >= 0
         (* unsigned int *)
@@ -255,7 +255,7 @@ let shift_flushes n t =
         let () = f n {t with flush} in
         aux {t with flush}
       else t
-    with FQueue.Empty -> t
+    with Ke.Fke.Empty -> t
   in
   aux t
 
@@ -324,7 +324,7 @@ let schedule_bigstring =
   let buffer x = Buffer.Bigstring x in
   fun k t ?(off = 0) ?len v -> schedule k ~length ~buffer ~off ?len v t
 
-let schedule_flush f t = {t with flush= FQueue.push t.flush (t.received, f)}
+let schedule_flush f t = {t with flush= Ke.Fke.push t.flush (t.received, f)}
 
 external identity : 'a -> 'a = "%identity"
 
