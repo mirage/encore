@@ -1,11 +1,11 @@
 (library
- (name        is_a_sub_xen)
- (public_name encore.is_a_sub.xen)
+ (name        butils_xen)
+ (public_name encore.butils.xen)
  (optional)
  (libraries   mirage-xen-posix)
- (c_names     is_a_sub)
+ (c_names     butils)
  (c_flags     (:include cflags.sexp)))
 
-(rule (copy# ../is_a_sub.c is_a_sub.c))
+(rule (copy# ../butils.c butils.c))
 
 (rule (with-stdout-to cflags.sexp (run ./cflags.sh)))

@@ -1,4 +1,0 @@
-(library
- (name is_a_sub)
- (public_name encore.is_a_sub)
- (c_names is_a_sub))
