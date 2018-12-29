@@ -212,6 +212,14 @@ let create len =
   ; written= 0
   ; received= 0 }
 
+let from len bigarray =
+  let write = RBA.from bigarray in
+  { sched= RBS.make (len * 2)
+  ; write
+  ; flush= Ke.Fke.empty
+  ; written= 0
+  ; received= 0 }
+
 let check iovec { write; _ } =
   match iovec with
   | {IOVec.buffer= Buffer.Bigstring x; _} ->
