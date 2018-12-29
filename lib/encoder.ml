@@ -1,13 +1,8 @@
 type vec = {off: int option; len: int option}
-
 type 'a state = 'a Lole.state
-
 type encoder = Lole.encoder
-
 type bigstring = Lole.bigstring
-
 type iovecs = Lole.IOVec.t list
-
 type -'a t = {run: 'r. (encoder -> 'r state) -> encoder -> 'a -> 'r state}
 
 type -'a s =
@@ -20,19 +15,12 @@ let peek : 'a t -> 'b t -> ('a, 'b) Either.t t =
   {run= (fun k e -> function L x -> a.run k e x | R y -> b.run k e y)}
 
 let char : char t = {run= (fun k e v -> Lole.write_char v k e)}
-
 let int8 : int t = {run= (fun k e v -> Lole.write_uint8 v k e)}
-
 let beint16 : int t = {run= (fun k e v -> Lole.BE.write_uint16 v k e)}
-
 let beint32 : int32 t = {run= (fun k e v -> Lole.BE.write_uint32 v k e)}
-
 let beint64 : int64 t = {run= (fun k e v -> Lole.BE.write_uint64 v k e)}
-
 let leint16 : int t = {run= (fun k e v -> Lole.LE.write_uint16 v k e)}
-
 let leint32 : int32 t = {run= (fun k e v -> Lole.LE.write_uint32 v k e)}
-
 let leint64 : int64 t = {run= (fun k e v -> Lole.LE.write_uint64 v k e)}
 
 let bool : bool t =
@@ -60,9 +48,7 @@ let sub (a : 'v s) : (vec * 'v) t =
   {run= (fun k e ({off; len}, v) -> a.sub ?off ?len k e v)}
 
 let string : string t = whole substring
-
 let bytes : bytes t = whole subbytes
-
 let bigstring : bigstring t = whole subbigstring
 
 let list ?sep a : 'a list t =
@@ -102,11 +88,8 @@ let ( <|> ) pu pv =
         | Fail _ | Bijection.Exn.Bijection (_, _) -> pv.run k e v ) }
 
 let ( <$> ) f p = {run= (fun k e v -> p.run k e (f v))}
-
 let ( <*> ) a b = {run= (fun k e (x, y) -> a.run (fun e -> b.run k e y) e x)}
-
 let prefix p r = {run= (fun k e v -> p.run (fun e -> r.run k e v) e ())}
-
 let suffix s r = {run= (fun k e v -> r.run (fun e -> s.run k e ()) e v)}
 
 exception Break
@@ -163,11 +146,8 @@ let take n =
         ) }
 
 let buffer = string
-
 let bigstring_buffer = bigstring
-
 let ( <* ) r s = suffix s r
-
 let ( *> ) p r = prefix p r
 
 let fix f =
@@ -191,7 +171,6 @@ let keval :
   t.run k e v |> go
 
 let eval w e t v = keval (fun _e -> Lole.End ()) w e (t <* commit) v
-
 let run t = t.run
 
 module Make (S : sig

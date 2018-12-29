@@ -2,38 +2,25 @@ module type VALUE = sig
   type t
 
   val sentinel : t
-
   val weight : t -> int
-
   val merge : t -> t -> t option
-
   val pequal : t -> t -> bool
-
   val pp : t Fmt.t
 end
 
 module RBQ (Value : VALUE) :
   sig
     type t
-
     type value
 
     val make : int -> t
-
     val pp : t Fmt.t
-
     val available : t -> int
-
     val push : t -> value -> (t, t) result
-
     val shift_exn : t -> value * t
-
     val cons : t -> value -> (t, t) result
-
     val cons_exn : t -> value -> t
-
     val weight : t -> int
-
     val to_list : t -> value list
   end
   with type value = Value.t
@@ -49,9 +36,7 @@ val pp_scalar :
   get:('buffer -> int -> char) -> length:('buffer -> int) -> 'buffer Fmt.t
 
 val pp_string : string Fmt.t
-
 val pp_bytes : Bytes.t Fmt.t
-
 val pp_bigstring : bigstring Fmt.t
 
 module RBA : Ke.Sigs.Weighted.F
@@ -60,9 +45,7 @@ module Buffer : sig
   type t = Bigstring of bigstring | String of string | Bytes of Bytes.t
 
   val weight : t -> int
-
   val pp : t Fmt.t
-
   val sub : t -> int -> int -> t
 end
 
@@ -70,19 +53,12 @@ module IOVec : sig
   type t = {buffer: Buffer.t; off: int; len: int}
 
   val weight : t -> int
-
   val length : t -> int
-
   val lengthv : t list -> int
-
   val shift : t -> int -> t
-
   val split : t -> int -> t * t
-
   val pequal : t -> t -> bool
-
   val merge : t -> t -> t option
-
   val pp : t Fmt.t
 end
 
@@ -97,19 +73,12 @@ type 'v state =
 
 val create : int -> encoder
 val from : int -> bigstring -> encoder
-
 val shift_buffers : int -> encoder -> IOVec.t list * encoder
-
 val shift_flushes : int -> encoder -> encoder
-
 val shift : int -> encoder -> IOVec.t list * encoder
-
 val has : encoder -> int
-
 val drain : int -> encoder -> encoder
-
 val flush : (encoder -> 'value state) -> encoder -> 'value state
-
 val continue : (encoder -> 'value state) -> encoder -> 'value state
 
 val schedule :
@@ -172,9 +141,7 @@ val writev :
   -> 'r state
 
 val bigarray_blit_from_string : string blitter
-
 val bigarray_blit_from_bytes : Bytes.t blitter
-
 val bigarray_blit : bigstring blitter
 
 val write_string :
@@ -202,17 +169,13 @@ val write_bigstring :
   -> 'r state
 
 val write_char : char -> (encoder -> 'r state) -> encoder -> 'r state
-
 val write_uint8 : int -> (encoder -> 'r state) -> encoder -> 'r state
 
 module type SE = sig
   val write_uint16 : int -> (encoder -> 'r state) -> encoder -> 'r state
-
   val write_uint32 : int32 -> (encoder -> 'r state) -> encoder -> 'r state
-
   val write_uint64 : int64 -> (encoder -> 'r state) -> encoder -> 'r state
 end
 
 module LE : SE
-
 module BE : SE

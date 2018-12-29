@@ -50,15 +50,10 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
         Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
 
   let fix = Angstrom.fix
-
   let nop = Angstrom.return ()
-
   let any = Angstrom.any_char
-
   let fail err = Angstrom.fail err
-
   let pure ~compare:_ v = Angstrom.return v
-
   let take = Angstrom.take
 
   let peek a b =
@@ -68,17 +63,11 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
     | Some _ -> a >>| fun x -> Either.L x | None -> b >>| fun y -> Either.R y
 
   let skip = Angstrom.skip_many
-
   let const s = Angstrom.(string s <?> s)
-
   let commit = Angstrom.commit
-
   let while0 = Angstrom.take_while
-
   let while1 = Angstrom.take_while1
-
   let bigstring_while0 = Angstrom.take_bigstring_while
-
   let bigstring_while1 = Angstrom.take_bigstring_while1
 
   let buffer =
