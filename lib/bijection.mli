@@ -78,9 +78,7 @@ val product :
      t
 
 val obj3 : (('a * 'b) * 'c, 'a * 'b * 'c) texn
-
 val obj4 : ((('a * 'b) * 'c) * 'd, 'a * 'b * 'c * 'd) texn
-
 val obj5 : (((('a * 'b) * 'c) * 'd) * 'e, 'a * 'b * 'c * 'd * 'e) texn
 
 val obj6 :
@@ -90,41 +88,25 @@ module Exn : sig
   exception Bijection of string * string
 
   val fail : string -> string -> 'a
-
   val of_option : ('a, 'b) topt -> ('a, 'b) texn
-
   val compose : ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
-
   val ( % ) : ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
-
   val commute : ('a * 'b, 'b * 'a) texn
-
   val identity : ('a, 'a) texn
-
   val subset : ('a -> bool) -> ('a, 'a) texn
 
   val element :
     tag:string -> compare:('a -> 'a -> bool) -> 'a -> ('a, unit) texn
 
   val singleton : tag:string -> ('a, 'a list) texn
-
   val cons : tag:string -> ('a * 'a list, 'a list) texn
-
   val nil : (unit, unit list) texn
-
   val some : tag:string -> ('a, 'a option) texn
-
   val none : (unit, unit option) texn
-
   val string : (char list, string) texn
-
   val safe_exn : string * string -> ('a -> 'b) -> 'a -> 'b
-
   val int : (string, int) texn
-
   val bool : (string, bool) texn
-
   val fst : tag:string -> ('b, unit) texn -> ('a * 'b, 'a) texn
-
   val snd : tag:string -> ('b, unit) texn -> ('b * 'a, 'a) texn
 end

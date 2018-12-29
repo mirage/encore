@@ -12,9 +12,7 @@ and res = R
 and error = [`Msg of string]
 
 let exn = Exn
-
 let opt = Opt
-
 let res = Res
 
 type ('k, 'a, 'b) t =
@@ -51,13 +49,9 @@ let make : type a b ra rb kd.
   ; tag }
 
 let fwd t = t.to_
-
 let bwd t = t.of_
-
 let make_exn ~tag ~fwd ~bwd = make exn exn ~tag ~fwd ~bwd
-
 let make_opt ~tag ~fwd ~bwd = make opt opt ~tag ~fwd ~bwd
-
 let make_res ~tag ~fwd ~bwd = make res res ~tag ~fwd ~bwd
 
 let flip :
@@ -215,7 +209,6 @@ module Exn = struct
     ; tag= ("char list", "string") }
 
   let safe_exn tag f x = try f x with _ -> fail (fst tag) (snd tag)
-
   let flip (a, b) = (b, a)
 
   let int : (string, int) texn =
@@ -245,6 +238,5 @@ module Exn = struct
     ; tag= t.tag }
 
   let fst = _fst
-
   let snd = _snd
 end

@@ -4,20 +4,23 @@ end
 
 type ('a, 'b) bigarray = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
 
-external is_a_sub : ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool = "caml_encore_is_a_sub" [@@noalloc]
-external physically_equal : ('a, 'b) bigarray -> ('a, 'b) bigarray -> bool = "caml_encore_bigarray_equal" [@@noalloc]
+external is_a_sub :
+  ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool
+  = "caml_encore_is_a_sub"
+  [@@noalloc]
+
+external physically_equal :
+  ('a, 'b) bigarray -> ('a, 'b) bigarray -> bool
+  = "caml_encore_bigarray_equal"
+  [@@noalloc]
 
 module type VALUE = sig
   type t
 
   val sentinel : t
-
   val weight : t -> int
-
   val merge : t -> t -> t option
-
   val pequal : t -> t -> bool
-
   val pp : t Fmt.t
 end
 
@@ -53,7 +56,6 @@ module RBQ (V : VALUE) = struct
     {t with w= t.w + V.weight v; q= Queue.cons t.q v}
 
   let weight t = Queue.fold (fun acc x -> acc + V.weight x) 0 t.q
-
   let to_list t = Queue.fold (fun a x -> x :: a) [] t.q |> List.rev
 end
 
@@ -90,7 +92,6 @@ let pp_scalar : type buffer.
   done
 
 let pp_string = pp_scalar ~get:String.get ~length:String.length
-
 let pp_bytes = pp_scalar ~get:Bytes.get ~length:Bytes.length
 
 let pp_bigstring =
@@ -139,9 +140,7 @@ module IOVec = struct
     {buffer= Buffer.String deadbeef; off= 0; len= String.length deadbeef}
 
   let make buffer off len = {buffer; off; len}
-
   let length {len; _} = len
-
   let lengthv = List.fold_left (fun acc x -> length x + acc) 0
 
   let shift {buffer; off; len} n =
@@ -157,7 +156,7 @@ module IOVec = struct
     match (a, b) with
     | {buffer= Buffer.Bytes a; _}, {buffer= Buffer.Bytes b; _} -> a == b
     | {buffer= Buffer.Bigstring a; _}, {buffer= Buffer.Bigstring b; _} ->
-      physically_equal a b
+        physically_equal a b
     | _, _ -> false
 
   let merge a b =
@@ -197,7 +196,8 @@ type encoder =
   ; received: int }
 
 let pp ppf {sched; _} =
-  Fmt.pf ppf "{ @[<hov>sched = %a;@ write = #queue;@] }" (Fmt.hvbox RBS.pp) sched
+  Fmt.pf ppf "{ @[<hov>sched = %a;@ write = #queue;@] }" (Fmt.hvbox RBS.pp)
+    sched
 
 type 'v state =
   | Flush of {continue: int -> 'v state; iovecs: IOVec.t list}
@@ -220,12 +220,12 @@ let from len bigarray =
   ; written= 0
   ; received= 0 }
 
-let check iovec { write; _ } =
+let check iovec {write; _} =
   match iovec with
   | {IOVec.buffer= Buffer.Bigstring x; _} ->
-    let buf = RBA.unsafe_bigarray  write in
-    let len = Bigarray.Array1.dim buf in
-    is_a_sub x (Bigarray.Array1.dim x) buf len
+      let buf = RBA.unsafe_bigarray write in
+      let len = Bigarray.Array1.dim buf in
+      is_a_sub x (Bigarray.Array1.dim x) buf len
   | _ -> false
 
 let shift_buffers n t =
@@ -238,14 +238,16 @@ let shift_buffers n t =
             { t with
               sched= shifted
             ; write=
-                (if check iovec t then RBA.N.shift_exn t.write len else t.write) }
+                (if check iovec t then RBA.N.shift_exn t.write len else t.write)
+            }
         else if rest > 0 then
           let last, rest = IOVec.split iovec rest in
           ( List.rev (last :: acc)
           , { t with
               sched= RBS.cons_exn shifted rest
             ; write=
-                ( if check iovec t then RBA.N.shift_exn t.write (IOVec.length last)
+                ( if check iovec t then
+                  RBA.N.shift_exn t.write (IOVec.length last)
                 else t.write ) } )
         else (List.rev acc, t)
     | exception RBS.Queue.Empty -> (List.rev acc, t)
@@ -285,11 +287,13 @@ let drain drain t =
             { t with
               sched= shifted
             ; write=
-                (if check iovec t then RBA.N.shift_exn t.write len else t.write) }
+                (if check iovec t then RBA.N.shift_exn t.write len else t.write)
+            }
         else
           { t with
             sched= RBS.cons_exn shifted (IOVec.shift iovec rest)
-          ; write= (if check iovec t then RBA.N.shift_exn t.write rest else t.write)
+          ; write=
+              (if check iovec t then RBA.N.shift_exn t.write rest else t.write)
           }
     | exception RBS.Queue.Empty -> t
   in
@@ -436,14 +440,11 @@ let write_uint8 =
   fun a k t -> write k ~length ~blit ~off:0 ~len:1 a t
 
 module type EndianBigstringSig = EndianBigstring.EndianBigstringSig
-
 module type EndianBytesSig = EndianBytes.EndianBytesSig
 
 module type SE = sig
   val write_uint16 : int -> (encoder -> 'r state) -> encoder -> 'r state
-
   val write_uint32 : int32 -> (encoder -> 'r state) -> encoder -> 'r state
-
   val write_uint64 : int64 -> (encoder -> 'r state) -> encoder -> 'r state
 end
 
