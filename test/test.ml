@@ -88,6 +88,311 @@ module type COMBINATOR = sig
   end
 end
 
+let parser =
+  let make_test : type sentinel.
+         string
+      -> (module COMBINATOR with type sentinel = sentinel)
+      -> sentinel Alcotest.testable
+      -> sentinel
+      -> string
+      -> unit Alcotest.test_case
+    = fun name (module Combinator) value sentinel s ->
+    let of_string s =
+      let module Dec = Combinator.Make (Proxy_decoder.Impl) in
+      match Angstrom.parse_string Dec.p s with
+      | Ok v -> v
+      | Error err -> invalid_arg err
+    in
+    Alcotest.test_case name `Quick @@ fun () ->
+    Alcotest.(check value) "decode" (of_string s) sentinel
+  in
+  let make_reject : type sentinel.
+         string
+      -> (module COMBINATOR with type sentinel = sentinel)
+      -> string
+      -> unit Alcotest.test_case =
+   fun name (module Combinator) s ->
+    let of_string s =
+      let module Dec = Combinator.Make (Proxy_decoder.Impl) in
+      match Angstrom.parse_string Dec.p s with
+      | Ok v -> v
+      | Error err -> invalid_arg err
+    in
+    Alcotest.test_case name `Quick @@ fun () ->
+    try
+      let _ = of_string s in
+      Alcotest.failf "test %s works" name
+    with _ -> ()
+  in
+  let open Bijection in
+  List.concat
+    [ (let combinator =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = any
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char )
+       in
+       [ make_test "any" combinator Alcotest.char 'f' "foo"
+       ; make_test "any" combinator Alcotest.char 'b' "bar"
+       ; make_reject "any" combinator "" ] )
+    ; (let combinator =
+         ( module struct
+           type sentinel = char * char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let a = Exn.subset ((=) 'a') <$> any
+             let b = Exn.subset ((=) 'b') <$> any
+             let p : sentinel S.t = a <*> b
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char * char )
+       in
+       [ make_test "(<*>)" combinator Alcotest.(pair char char) ('a', 'b') "ab"
+       ; make_reject "(<*>)" combinator "ac"
+       ; make_reject "(<*>)" combinator "cb"
+       ; make_reject "(<*>)" combinator "a"
+       ; make_reject "(<*>)" combinator "b" ] )
+    ; (let combinator =
+         ( module struct
+           type sentinel = unit
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = fail "fail"
+           end
+         end
+         : COMBINATOR
+           with type sentinel = unit )
+       in
+       [ make_reject "fail" combinator "foo"
+       ; make_reject "fail" combinator "bar"
+       ; make_reject "fail" combinator "" ] )
+    ; (let unit, a_any, b_any =
+         ( module struct
+           type sentinel = unit
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = pure ~compare:(fun () () -> 0) ()
+           end
+         end
+         : COMBINATOR
+           with type sentinel = unit ),
+         ( module struct
+           type sentinel = char * char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = pure ~compare:Char.compare 'a' <*> any
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char * char ),
+         ( module struct
+           type sentinel = char * char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = pure ~compare:Char.compare 'b' <*> any
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char * char )
+       in
+       [ make_test "pure" unit Alcotest.unit () "foo"
+       ; make_test "pure" unit Alcotest.unit () "bar"
+       ; make_test "pure" unit Alcotest.unit () ""
+       ; make_test "pure" a_any Alcotest.(pair char char) ('a', 'b') "bar"
+       ; make_test "pure" b_any Alcotest.(pair char char) ('b', 'b') "bar" ] )
+    ; (let a_or_b, b_or_a =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let a = Exn.subset ((=) 'a') <$> any
+             let b = Exn.subset ((=) 'b') <$> any
+             let p : sentinel S.t = a <|> b
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char ),
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let a = Exn.subset ((=) 'a') <$> any
+             let b = Exn.subset ((=) 'b') <$> any
+             let p : sentinel S.t = b <|> a
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char )
+       in
+       [ make_test "(<|>)" a_or_b Alcotest.char 'a' "a"
+       ; make_test "(<|>)" b_or_a Alcotest.char 'a' "a"
+       ; make_reject "(<|>)" a_or_b "c"
+       ; make_reject "(<|>)" b_or_a "c" ] ) ]
+
+let printer =
+  let make_test : type sentinel.
+         string
+      -> (module COMBINATOR with type sentinel = sentinel)
+      -> sentinel
+      -> string
+      -> unit Alcotest.test_case
+    = fun name (module Combinator) sentinel s ->
+    let to_string v =
+      let module Enc = Combinator.Make (Proxy_encoder.Impl) in
+      Encoder.to_string Enc.p v
+    in
+    Alcotest.test_case name `Quick @@ fun () ->
+    Alcotest.(check string) "encode" (to_string sentinel) s
+  in
+  let make_reject : type sentinel.
+         string
+      -> (module COMBINATOR with type sentinel = sentinel)
+      -> sentinel
+      -> unit Alcotest.test_case =
+   fun name (module Combinator) v ->
+     let to_string v =
+       let module Enc = Combinator.Make (Proxy_encoder.Impl) in
+       Encoder.to_string Enc.p v
+     in
+     Alcotest.test_case name `Quick @@ fun () ->
+     try
+       let _ = to_string v in
+       Alcotest.failf "test %s works" name
+     with _ -> ()
+  in
+  let open Bijection in
+  List.concat
+    [ (let combinator =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = any
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char )
+       in
+       [ make_test "any" combinator 'f' "f" ] )
+    ; (let combinator =
+         ( module struct
+           type sentinel = char * char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let a = Exn.subset ((=) 'a') <$> any
+             let b = Exn.subset ((=) 'b') <$> any
+             let p : sentinel S.t = a <*> b
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char * char )
+       in
+       [ make_test "(<*>)" combinator ('a', 'b') "ab"
+       ; make_reject "(<*>)" combinator ('a', 'c')
+       ; make_reject "(<*>)" combinator ('c', 'b')
+       ; make_reject "(<*>)" combinator ('c', 'c') ] )
+    ; (let combinator =
+         ( module struct
+           type sentinel = unit
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = fail "fail"
+           end
+         end
+         : COMBINATOR
+           with type sentinel = unit )
+       in
+       [ make_reject "fail" combinator () ] )
+    ; (let unit, int =
+         ( module struct
+           type sentinel = unit
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = pure ~compare:(fun () () -> 0) ()
+           end
+         end
+         : COMBINATOR
+           with type sentinel = unit ),
+         ( module struct
+           type sentinel = int
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let p : sentinel S.t = pure ~compare:( - ) 42
+           end
+         end
+         : COMBINATOR
+           with type sentinel = int )
+       in
+       [ make_test "pure" unit () ""
+       ; make_test "pure" int 42 ""
+       ; make_reject "pure" int 24 ] )
+    ; (let a_or_b, b_or_a =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let a = Exn.subset ((=) 'a') <$> any
+             let b = Exn.subset ((=) 'b') <$> any
+             let p : sentinel S.t = a <|> b
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char ),
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make (S)
+
+             let a = Exn.subset ((=) 'a') <$> any
+             let b = Exn.subset ((=) 'b') <$> any
+             let p : sentinel S.t = b <|> a
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char )
+       in
+       [ make_test "(<|>)" a_or_b 'a' "a"
+       ; make_test "(<|>)" a_or_b 'b' "b"
+       ; make_test "(<|>)" b_or_a 'a' "a"
+       ; make_test "(<|>)" b_or_a 'b' "b"
+       ; make_reject "(<|>)" a_or_b 'c'
+       ; make_reject "(<|>)" b_or_a 'c' ] ) ]
+
 let make : type sentinel.
        (module COMBINATOR with type sentinel = sentinel)
     -> (sentinel -> string) * (string -> sentinel) =
@@ -364,6 +669,86 @@ let combinator =
              Alcotest.(list char)
              ['b'; 'a'; 'r'] "b,a,r,"
          ; make_reject "end_by1" combinator [] "" ])
+    ; (let combinator =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make(S)
+
+             let p : sentinel S.t = lower
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char)
+       in
+       List.concat
+         [ make_test "lower:a" combinator Alcotest.char 'a' "a"
+         ; make_test "lower:z" combinator Alcotest.char 'z' "z"
+         ; make_reject "lower:A" combinator 'A' "A"
+         ; make_reject "lower:Z" combinator 'Z' "Z"
+         ; make_reject "lower:0" combinator '0' "0"
+         ; make_reject "lower:9" combinator '9' "9" ])
+    ; (let combinator =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make(S)
+
+             let p : sentinel S.t = upper
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char)
+       in
+       List.concat
+         [ make_test "upper:A" combinator Alcotest.char 'A' "A"
+         ; make_test "upper:Z" combinator Alcotest.char 'Z' "Z"
+         ; make_reject "upper:a" combinator 'a' "a"
+         ; make_reject "upper:z" combinator 'z' "z"
+         ; make_reject "upper:0" combinator '0' "0"
+         ; make_reject "upper:9" combinator '9' "9" ])
+    ; (let combinator =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make(S)
+
+             let p : sentinel S.t = alpha
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char)
+       in
+       List.concat
+         [ make_test "alpha:A" combinator Alcotest.char 'A' "A"
+         ; make_test "alpha:a" combinator Alcotest.char 'a' "a"
+         ; make_test "alpha:Z" combinator Alcotest.char 'Z' "Z"
+         ; make_test "alpha:z" combinator Alcotest.char 'z' "z"
+         ; make_reject "alpha:0" combinator '0' "0"
+         ; make_reject "alpha:9" combinator '9' "9" ])
+    ; (let combinator =
+         ( module struct
+           type sentinel = char
+
+           module Make (S : Meta.S) = struct
+             include Meta.Make(S)
+
+             let p : sentinel S.t = digit
+           end
+         end
+         : COMBINATOR
+           with type sentinel = char)
+       in
+       List.concat
+         [ make_reject "digit:A" combinator 'A' "A"
+         ; make_reject "digit:a" combinator 'a' "a"
+         ; make_reject "digit:Z" combinator 'Z' "Z"
+         ; make_reject "digit:z" combinator 'z' "z"
+         ; make_test "digit:0" combinator Alcotest.char '0' "0"
+         ; make_test "digit:9" combinator Alcotest.char '9' "9" ])
     ; make_test "sequence"
         ( module struct
           type sentinel = char list
@@ -378,4 +763,8 @@ let combinator =
         ['b'; 'a'; 'r'] "bar" ]
 
 let () =
-  Alcotest.run "isomorpism" [("isomorphism", iso); ("combinator", combinator)]
+  Alcotest.run "isomorpism"
+    [ "isomorphism", iso
+    ; "combinator", combinator
+    ; "parser", parser
+    ; "printer", printer ]
