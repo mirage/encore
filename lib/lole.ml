@@ -86,8 +86,7 @@ module RBQ (V : VALUE) = struct
     !res
 end
 
-type bigstring =
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+type bigstring = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type 'a blitter = 'a -> int -> bigstring -> int -> int -> unit
 
@@ -120,9 +119,7 @@ let pp_scalar : type buffer.
 
 let pp_string = pp_scalar ~get:String.get ~length:String.length
 let pp_bytes = pp_scalar ~get:Bytes.get ~length:Bytes.length
-
-let pp_bigstring =
-  pp_scalar ~get:Bigarray.Array1.get ~length:Bigarray.Array1.dim
+let pp_bigstring = pp_scalar ~get:Bigarray.Array1.get ~length:Bigarray.Array1.dim
 
 module RBA = Ke.Fke.Weighted
 
@@ -453,7 +450,7 @@ let write_char =
   let blit src src_off dst dst_off len =
     assert (src_off = 0) ;
     assert (len = 1) ;
-    EndianBigstring.BigEndian_unsafe.set_char dst dst_off src
+    Bigstringaf.set dst dst_off src
   in
   fun a k t -> write k ~length ~blit ~off:0 ~len:1 a t
 
@@ -462,20 +459,17 @@ let write_uint8 =
   let blit src src_off dst dst_off len =
     assert (src_off = 0) ;
     assert (len = 1) ;
-    EndianBigstring.BigEndian_unsafe.set_int8 dst dst_off src
+    Bigstringaf.set dst dst_off (Char.chr (src land 0xff))
   in
   fun a k t -> write k ~length ~blit ~off:0 ~len:1 a t
 
-module type EndianBigstringSig = EndianBigstring.EndianBigstringSig
-module type EndianBytesSig = EndianBytes.EndianBytesSig
-
-module type SE = sig
+module type S = sig
   val write_uint16 : int -> (encoder -> 'r state) -> encoder -> 'r state
   val write_uint32 : int32 -> (encoder -> 'r state) -> encoder -> 'r state
   val write_uint64 : int64 -> (encoder -> 'r state) -> encoder -> 'r state
 end
 
-module MakeE (EBigstring : EndianBigstringSig) : SE = struct
+module BE = struct
   let _length _ = assert false
 
   let write_uint16 =
@@ -483,7 +477,7 @@ module MakeE (EBigstring : EndianBigstringSig) : SE = struct
     let blit src src_off dst dst_off len =
       assert (src_off = 0) ;
       assert (len = 2) ;
-      EBigstring.set_int16 dst dst_off src
+      Bigstringaf.set_int16_be dst dst_off src
     in
     fun a k t -> write k ~length ~blit ~off:0 ~len:2 a t
 
@@ -492,7 +486,7 @@ module MakeE (EBigstring : EndianBigstringSig) : SE = struct
     let blit src src_off dst dst_off len =
       assert (src_off = 0) ;
       assert (len = 4) ;
-      EBigstring.set_int32 dst dst_off src
+      Bigstringaf.set_int32_be dst dst_off src
     in
     fun a k t -> write k ~length ~blit ~off:0 ~len:4 a t
 
@@ -501,10 +495,38 @@ module MakeE (EBigstring : EndianBigstringSig) : SE = struct
     let blit src src_off dst dst_off len =
       assert (src_off = 0) ;
       assert (len = 8) ;
-      EBigstring.set_int64 dst dst_off src
+      Bigstringaf.set_int64_be dst dst_off src
     in
     fun a k t -> write k ~length ~blit ~off:0 ~len:8 a t
 end
 
-module LE = MakeE (EndianBigstring.LittleEndian_unsafe)
-module BE = MakeE (EndianBigstring.BigEndian_unsafe)
+module LE = struct
+  let _length _ = assert false
+
+  let write_uint16 =
+    let length = _length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0) ;
+      assert (len = 2) ;
+      Bigstringaf.set_int16_le dst dst_off src
+    in
+    fun a k t -> write k ~length ~blit ~off:0 ~len:2 a t
+
+  let write_uint32 =
+    let length = _length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0) ;
+      assert (len = 4) ;
+      Bigstringaf.set_int32_le dst dst_off src
+    in
+    fun a k t -> write k ~length ~blit ~off:0 ~len:4 a t
+
+  let write_uint64 =
+    let length = _length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0) ;
+      assert (len = 8) ;
+      Bigstringaf.set_int64_le dst dst_off src
+    in
+    fun a k t -> write k ~length ~blit ~off:0 ~len:8 a t
+end

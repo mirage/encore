@@ -2,4 +2,4 @@
  (name Encore)
  (public_name encore)
  (flags (:standard -w -32))
- (libraries butils ke angstrom fmt ocplib-endian ocplib-endian.bigstring))
+ (libraries butils ke angstrom fmt))
