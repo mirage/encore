@@ -12,7 +12,7 @@ and res = R
 and error = [`Msg of string]
 
 type ('k, 'a, 'b) t =
-  {to_: 'a -> 'rb; of_: 'b -> 'ra; kd: 'kd; tag: string * string}
+  {to_: 'a -> 'rb; of_: 'b -> 'ra; kd: 'kd;}
   constraint 'k = < reta: ('a, 'ra, 'kd) kind ; retb: ('b, 'rb, 'kd) kind >
 
 type ('a, 'b) texn =
@@ -34,7 +34,6 @@ type ('a, 'b) tres =
 val make :
      ('a, 'ra, 'kd) kind
   -> ('b, 'rb, 'kd) kind
-  -> tag:string * string
   -> fwd:('a -> 'rb)
   -> bwd:('b -> 'ra)
   -> (< reta: ('a, 'ra, 'kd) kind ; retb: ('b, 'rb, 'kd) kind >, 'a, 'b) t
@@ -50,17 +49,15 @@ val bwd :
   -> 'ra
 
 val make_exn :
-  tag:string * string -> fwd:('a -> 'b) -> bwd:('b -> 'a) -> ('a, 'b) texn
+  fwd:('a -> 'b) -> bwd:('b -> 'a) -> ('a, 'b) texn
 
 val make_opt :
-     tag:string * string
-  -> fwd:('a -> 'b option)
+     fwd:('a -> 'b option)
   -> bwd:('b -> 'a option)
   -> ('a, 'b) topt
 
 val make_res :
-     tag:string * string
-  -> fwd:('a -> ('b, error) result)
+     fwd:('a -> ('b, error) result)
   -> bwd:('b -> ('a, error) result)
   -> ('a, 'b) tres
 
@@ -85,9 +82,9 @@ val obj6 :
   ((((('a * 'b) * 'c) * 'd) * 'e) * 'f, 'a * 'b * 'c * 'd * 'e * 'f) texn
 
 module Exn : sig
-  exception Bijection of string * string
+  exception Bijection
 
-  val fail : string -> string -> 'a
+  val fail : unit -> 'a
   val of_option : ('a, 'b) topt -> ('a, 'b) texn
   val compose : ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
   val ( % ) : ('a, 'b) texn -> ('b, 'c) texn -> ('a, 'c) texn
@@ -96,17 +93,17 @@ module Exn : sig
   val subset : ('a -> bool) -> ('a, 'a) texn
 
   val element :
-    tag:string -> compare:('a -> 'a -> bool) -> 'a -> ('a, unit) texn
+    compare:('a -> 'a -> bool) -> 'a -> ('a, unit) texn
 
-  val singleton : tag:string -> ('a, 'a list) texn
-  val cons : tag:string -> ('a * 'a list, 'a list) texn
+  val singleton : ('a, 'a list) texn
+  val cons : ('a * 'a list, 'a list) texn
   val nil : (unit, unit list) texn
-  val some : tag:string -> ('a, 'a option) texn
+  val some : ('a, 'a option) texn
   val none : (unit, unit option) texn
   val string : (char list, string) texn
-  val safe_exn : string * string -> ('a -> 'b) -> 'a -> 'b
+  val safe_exn : ('a -> 'b) -> 'a -> 'b
   val int : (string, int) texn
   val bool : (string, bool) texn
-  val fst : tag:string -> ('b, unit) texn -> ('a * 'b, 'a) texn
-  val snd : tag:string -> ('b, unit) texn -> ('b * 'a, 'a) texn
+  val fst : ('b, unit) texn -> ('a * 'b, 'a) texn
+  val snd : ('b, unit) texn -> ('b * 'a, 'a) texn
 end

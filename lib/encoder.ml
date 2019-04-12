@@ -85,7 +85,7 @@ let ( <|> ) pu pv =
   { run=
       (fun k e v ->
         try pu.run k e v with
-        | Fail _ | Bijection.Exn.Bijection (_, _) -> pv.run k e v ) }
+        | Fail _ | Bijection.Exn.Bijection -> pv.run k e v ) }
 
 let ( <$> ) f p = {run= (fun k e v -> p.run k e (f v))}
 let ( <*> ) a b = {run= (fun k e (x, y) -> a.run (fun e -> b.run k e y) e x)}
