@@ -33,20 +33,20 @@ let iso =
   ; test_fwd ~global:"int" Alcotest.int Exn.int (-42) "-42"
   ; test_bwd ~global:"int" Alcotest.int Exn.int "-42" (-42)
   ; test_reject_fwd ~global:"int" ~name:"empty string"
-      ~exn:(Bijection.Exn.Bijection ("string", "int"))
+      ~exn:Bijection.Exn.Bijection
       Exn.int ""
   ; test_reject_fwd ~global:"int" ~name:"invalid"
-      ~exn:(Bijection.Exn.Bijection ("string", "int"))
+      ~exn:Bijection.Exn.Bijection
       Exn.int "invalid"
   ; test_fwd ~global:"bool" Alcotest.bool Exn.bool true "true"
   ; test_bwd ~global:"bool" Alcotest.bool Exn.bool "true" true
   ; test_fwd ~global:"bool" Alcotest.bool Exn.bool false "false"
   ; test_bwd ~global:"bool" Alcotest.bool Exn.bool "false" false
   ; test_reject_fwd ~global:"bool" ~name:"empty string"
-      ~exn:(Bijection.Exn.Bijection ("string", "bool"))
+      ~exn:Bijection.Exn.Bijection
       Exn.bool ""
   ; test_reject_fwd ~global:"bool" ~name:"invalid"
-      ~exn:(Bijection.Exn.Bijection ("string", "bool"))
+      ~exn:Bijection.Exn.Bijection
       Exn.bool "invalid"
   ; test_fwd ~global:"identity" Alcotest.int Exn.identity 42 42
   ; test_bwd ~global:"identity" Alcotest.int Exn.identity 42 42
@@ -64,19 +64,19 @@ let iso =
       Alcotest.(pair int bool)
       (product Exn.int Exn.bool) (42, true) ("42", "true")
   ; test_reject_fwd ~global:"product" ~name:"empty string"
-      ~exn:(Bijection.Exn.Bijection ("string", "int"))
+      ~exn:Bijection.Exn.Bijection
       (product Exn.int Exn.bool) ("invalid", "true")
   ; test_reject_fwd ~global:"product" ~name:"empty string"
-      ~exn:(Bijection.Exn.Bijection ("string", "bool"))
+      ~exn:Bijection.Exn.Bijection
       (product Exn.int Exn.bool) ("true", "invalid")
   ; test_fwd ~global:"subset" Alcotest.char (Exn.subset (( = ) 'a')) 'a' 'a'
   ; test_bwd ~global:"subset" Alcotest.char (Exn.subset (( = ) 'a')) 'a' 'a'
   ; test_reject_fwd ~global:"subset" ~name:"a"
-      ~exn:(Bijection.Exn.Bijection ("a with predicate", "x"))
+      ~exn:Bijection.Exn.Bijection
       (Exn.subset (( = ) 'a'))
       'b'
   ; test_reject_bwd ~global:"subset" ~name:"a"
-      ~exn:(Bijection.Exn.Bijection ("a with predicate", "x"))
+      ~exn:Bijection.Exn.Bijection
       (Exn.subset (( = ) 'a'))
       'b' ]
 
@@ -453,8 +453,8 @@ let combinator =
           module Make (S : Meta.S) = struct
             include Meta.Make (S)
 
-            let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> any
-            let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> any
+            let a = Exn.element ~compare:Char.equal 'a' <$> any
+            let b = Exn.element ~compare:Char.equal 'b' <$> any
             let p : sentinel S.t = a *> b
           end
         end )
@@ -466,8 +466,8 @@ let combinator =
           module Make (S : Meta.S) = struct
             include Meta.Make (S)
 
-            let a = Exn.element ~tag:"char" ~compare:Char.equal 'a' <$> any
-            let b = Exn.element ~tag:"char" ~compare:Char.equal 'b' <$> any
+            let a = Exn.element ~compare:Char.equal 'a' <$> any
+            let b = Exn.element ~compare:Char.equal 'b' <$> any
             let p : sentinel S.t = a <* b
           end
         end )
@@ -586,7 +586,7 @@ let combinator =
              include Meta.Make (S)
 
              let comma =
-               Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+               Exn.element ~compare:Char.equal ',' <$> any
 
              let p : sentinel S.t = sep_by0 ~sep:comma any
            end
@@ -607,7 +607,7 @@ let combinator =
              include Meta.Make (S)
 
              let comma =
-               Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+               Exn.element ~compare:Char.equal ',' <$> any
 
              let p : sentinel S.t = sep_by1 ~sep:comma any
            end
@@ -628,7 +628,7 @@ let combinator =
              include Meta.Make (S)
 
              let comma =
-               Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+               Exn.element ~compare:Char.equal ',' <$> any
 
              let p : sentinel S.t = end_by0 ~sep:comma any
            end
@@ -650,7 +650,7 @@ let combinator =
              include Meta.Make (S)
 
              let comma =
-               Exn.element ~tag:"char" ~compare:Char.equal ',' <$> any
+               Exn.element ~compare:Char.equal ',' <$> any
 
              let p : sentinel S.t = end_by1 ~sep:comma any
            end

@@ -171,11 +171,11 @@ val write_bigstring :
 val write_char : char -> (encoder -> 'r state) -> encoder -> 'r state
 val write_uint8 : int -> (encoder -> 'r state) -> encoder -> 'r state
 
-module type SE = sig
+module type S = sig
   val write_uint16 : int -> (encoder -> 'r state) -> encoder -> 'r state
   val write_uint32 : int32 -> (encoder -> 'r state) -> encoder -> 'r state
   val write_uint64 : int64 -> (encoder -> 'r state) -> encoder -> 'r state
 end
 
-module LE : SE
-module BE : SE
+module LE : S
+module BE : S

@@ -8,8 +8,7 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
     try
       let x = bijection.Bijection.to_ x in
       return x
-    with Bijection.Exn.Bijection (to_, of_) ->
-      Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
+    with Bijection.Exn.Bijection -> Angstrom.fail "bijection"
 
   let ( <*> ) pa pb =
     let open Angstrom in
@@ -35,8 +34,8 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
     let open Bijection in
     match (bijection.to_ (), bijection.kd) with
     | x, E -> return x
-    | exception Bijection.Exn.Bijection (to_, of_) ->
-        Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
+    | exception Bijection.Exn.Bijection ->
+      Angstrom.fail "bijection"
 
   let ( <$ ) : 'a t -> (unit, 'a) Bijection.texn -> unit t =
    fun pe bijection ->
@@ -46,8 +45,8 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
     let open Bijection in
     match (bijection.of_ x, bijection.kd) with
     | x, E -> return x
-    | exception Bijection.Exn.Bijection (to_, of_) ->
-        Angstrom.fail (Fmt.strf "bijection: %s to %s" to_ of_)
+    | exception Bijection.Exn.Bijection ->
+      Angstrom.fail "bijection"
 
   let fix = Angstrom.fix
   let nop = Angstrom.return ()
@@ -85,7 +84,7 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
       >>= fun x ->
       match bijection.Bijection.to_ x with
       | Some x -> return x
-      | None -> Angstrom.fail "bijection: 'a to 'b"
+      | None -> Angstrom.fail "bijection"
 
     let ( $> ) pu bijection =
       let open Angstrom in
@@ -94,7 +93,7 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
       let open Bijection in
       match (bijection.to_ (), bijection.kd) with
       | Some x, O -> return x
-      | None, O -> Angstrom.fail "bijection: unit to 'a"
+      | None, O -> Angstrom.fail "bijection"
 
     let ( <$ ) pe bijection =
       let open Angstrom in
@@ -103,6 +102,6 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
       let open Bijection in
       match (bijection.of_ x, bijection.kd) with
       | Some x, O -> return x
-      | None, O -> Angstrom.fail "bijection: 'a to unit"
+      | None, O -> Angstrom.fail "bijection"
   end
 end

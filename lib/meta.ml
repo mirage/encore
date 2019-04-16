@@ -73,11 +73,11 @@ module Make (S : S) : T with type 'a t = 'a S.t = struct
 
   let sequence ps =
     List.fold_right
-      (fun hd tl -> Exn.cons ~tag:"seq" <$> (hd <*> tl))
+      (fun hd tl -> Exn.cons <$> (hd <*> tl))
       ps (pure_nil ())
 
   let choice ps = List.fold_right ( <|> ) ps (fail "choice")
-  let option p = Exn.some ~tag:"option" <$> p <|> pure_none ()
+  let option p = Exn.some <$> p <|> pure_none ()
 
   let count n p =
     let rec make acc = function 0 -> acc | n -> make (p :: acc) (n - 1) in
@@ -85,10 +85,10 @@ module Make (S : S) : T with type 'a t = 'a S.t = struct
 
   let rep1 p =
     let pure_nil = pure_nil () in
-    fix @@ fun m -> Exn.cons ~tag:"rep1" <$> (p <*> (m <|> pure_nil))
+    fix @@ fun m -> Exn.cons <$> (p <*> (m <|> pure_nil))
 
   let rep0 p = rep1 p <|> pure_nil ()
-  let sep_by1 ~sep p = Exn.cons ~tag:"sep_by1" <$> (p <*> rep0 (sep *> p))
+  let sep_by1 ~sep p = Exn.cons <$> (p <*> rep0 (sep *> p))
   let sep_by0 ~sep p = sep_by1 ~sep p <|> pure_nil ()
   let end_by1 ~sep p = rep1 (p <* sep)
   let end_by0 ~sep p = rep0 (p <* sep)
