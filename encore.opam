@@ -15,7 +15,7 @@ between them.
 """
 
 build: [
-  ["dune" "subst"]
+  ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
@@ -24,8 +24,7 @@ depends: [
   "ocaml" {>= "4.03.0"}
   "dune" {build}
   "angstrom" {>= "0.9.0"}
-  "ocplib-endian"
   "fmt"
-  "ke"
+  "ke" {>= "v0.3"}
   "alcotest" {with-test}
 ]
