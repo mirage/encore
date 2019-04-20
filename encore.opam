@@ -23,7 +23,7 @@ build: [
 depends: [
   "ocaml" {>= "4.03.0"}
   "dune" {build}
-  "angstrom" {>= "0.9.0"}
+  "angstrom" {>= "0.10.0"}
   "fmt"
   "ke" {>= "v0.3"}
   "alcotest" {with-test}
