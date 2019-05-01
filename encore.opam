@@ -25,6 +25,6 @@ depends: [
   "dune" {build}
   "angstrom" {>= "0.10.0"}
   "fmt"
-  "ke" {>= "v0.3"}
+  "ke" {>= "0.3"}
   "alcotest" {with-test}
 ]
