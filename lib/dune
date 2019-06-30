@@ -2,4 +2,4 @@
  (name Encore)
  (public_name encore)
  (flags (:standard -w -32))
- (libraries butils ke angstrom fmt))
+ (libraries butils ke angstrom fmt bigstringaf))
