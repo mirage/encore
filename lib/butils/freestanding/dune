@@ -2,7 +2,7 @@
  (name        butils_freestanding)
  (public_name encore.butils.freestanding)
  (optional)
- (libraries   ocaml-freestanding)
+ (libraries   bigarray-compat ocaml-freestanding)
  (c_names     butils)
  (c_flags     (:include cflags.sexp)))
 

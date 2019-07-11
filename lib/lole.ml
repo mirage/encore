@@ -2,7 +2,7 @@ module Option = struct
   let map_default default f = function Some v -> f v | None -> default
 end
 
-type ('a, 'b) bigarray = ('a, 'b, Bigarray.c_layout) Bigarray.Array1.t
+type ('a, 'b) bigarray = ('a, 'b, Bigarray_compat.c_layout) Bigarray_compat.Array1.t
 
 external is_a_sub :
   ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool
@@ -27,11 +27,11 @@ end
 module RBQ (V : VALUE) = struct
   module Queue = Ke.Fke.Weighted
 
-  type t = {a: V.t array; c: int; m: int; q: (int, Bigarray.int_elt) Queue.t}
+  type t = {a: V.t array; c: int; m: int; q: (int, Bigarray_compat.int_elt) Queue.t}
   and value = V.t
 
   let make capacity =
-    let q, capacity = Queue.create ~capacity Bigarray.Int in
+    let q, capacity = Queue.create ~capacity Bigarray_compat.Int in
     { a= Array.make capacity V.sentinel
     ; c= 0
     ; m= capacity
@@ -86,7 +86,7 @@ module RBQ (V : VALUE) = struct
     !res
 end
 
-type bigstring = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+type bigstring = (char, Bigarray_compat.int8_unsigned_elt, Bigarray_compat.c_layout) Bigarray_compat.Array1.t
 
 type 'a blitter = 'a -> int -> bigstring -> int -> int -> unit
 
@@ -119,7 +119,7 @@ let pp_scalar : type buffer.
 
 let pp_string = pp_scalar ~get:String.get ~length:String.length
 let pp_bytes = pp_scalar ~get:Bytes.get ~length:Bytes.length
-let pp_bigstring = pp_scalar ~get:Bigarray.Array1.get ~length:Bigarray.Array1.dim
+let pp_bigstring = pp_scalar ~get:Bigarray_compat.Array1.get ~length:Bigarray_compat.Array1.dim
 
 module RBA = Ke.Fke.Weighted
 
@@ -127,14 +127,14 @@ module Buffer = struct
   type t = Bigstring of bigstring | String of string | Bytes of Bytes.t
 
   let weight = function
-    | Bigstring raw -> Bigarray.Array1.dim raw
+    | Bigstring raw -> Bigarray_compat.Array1.dim raw
     | String raw -> String.length raw
     | Bytes raw -> Bytes.length raw
 
   let ppw_bigstring ppf b =
-    let len = Bigarray.Array1.dim b in
+    let len = Bigarray_compat.Array1.dim b in
     for i = 0 to len - 1 do
-      Fmt.char ppf (Bigarray.Array1.unsafe_get b i)
+      Fmt.char ppf (Bigarray_compat.Array1.unsafe_get b i)
     done
 
   let ppw ppf = function
@@ -149,7 +149,7 @@ module Buffer = struct
 
   let sub buffer off len =
     match buffer with
-    | Bigstring b -> Bigstring (Bigarray.Array1.sub b off len)
+    | Bigstring b -> Bigstring (Bigarray_compat.Array1.sub b off len)
     | String b -> String (String.sub b off len)
     | Bytes b -> Bytes (Bytes.sub b off len)
 end
@@ -199,7 +199,7 @@ module IOVec = struct
 
   let ppw ppf = function
     | {buffer= Buffer.Bigstring b; off; len} ->
-        Buffer.ppw_bigstring ppf (Bigarray.Array1.sub b off len)
+        Buffer.ppw_bigstring ppf (Bigarray_compat.Array1.sub b off len)
     | {buffer= Buffer.String b; off; len} ->
         Fmt.string ppf (String.sub b off len)
     | {buffer= Buffer.Bytes b; off; len} ->
@@ -214,7 +214,7 @@ module RBS = RBQ (IOVec)
 
 type encoder =
   { sched: RBS.t
-  ; write: (char, Bigarray.int8_unsigned_elt) RBA.t
+  ; write: (char, Bigarray_compat.int8_unsigned_elt) RBA.t
   ; flush: (int * (int -> encoder -> unit)) Ke.Fke.t
   ; written: int
   ; received: int }
@@ -229,7 +229,7 @@ type 'v state =
   | End of 'v
 
 let create len =
-  let write, _ = RBA.create ~capacity:len Bigarray.Char in
+  let write, _ = RBA.create ~capacity:len Bigarray_compat.Char in
   { sched= RBS.make (len * 2)
   ; write
   ; flush= Ke.Fke.empty
@@ -248,8 +248,8 @@ let check iovec {write; _} =
   match iovec with
   | {IOVec.buffer= Buffer.Bigstring x; _} ->
       let buf = RBA.unsafe_bigarray write in
-      let len = Bigarray.Array1.dim buf in
-      is_a_sub x (Bigarray.Array1.dim x) buf len
+      let len = Bigarray_compat.Array1.dim buf in
+      is_a_sub x (Bigarray_compat.Array1.dim x) buf len
   | _ -> false
 
 let shift_buffers n t =
@@ -356,7 +356,7 @@ let schedule_bytes =
   fun k t ?(off = 0) ?len v -> schedule k ~length ~buffer ~off ?len v t
 
 let schedule_bigstring =
-  let length = Bigarray.Array1.dim in
+  let length = Bigarray_compat.Array1.dim in
   let buffer x = Buffer.Bigstring x in
   fun k t ?(off = 0) ?len v -> schedule k ~length ~buffer ~off ?len v t
 
@@ -412,22 +412,22 @@ let writev k l t =
 
 let bigarray_blit_from_string src src_off dst dst_off len =
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst (dst_off + i)
+    Bigarray_compat.Array1.unsafe_set dst (dst_off + i)
       (String.unsafe_get src (src_off + i))
   done
 
 let bigarray_blit_from_bytes src src_off dst dst_off len =
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst (dst_off + i)
+    Bigarray_compat.Array1.unsafe_set dst (dst_off + i)
       (Bytes.unsafe_get src (src_off + i))
   done
 
 let bigarray_blit src src_off dst dst_off len =
-  Bigarray.Array1.(blit (sub src src_off len) (sub dst dst_off len))
+  Bigarray_compat.Array1.(blit (sub src src_off len) (sub dst dst_off len))
 
 let bigarray_blit_to_bytes src src_off dst dst_off len =
   for i = 0 to len - 1 do
-    Bytes.set dst (dst_off + i) (Bigarray.Array1.unsafe_get src (src_off + i))
+    Bytes.set dst (dst_off + i) (Bigarray_compat.Array1.unsafe_get src (src_off + i))
   done
 
 let write_string =
@@ -441,7 +441,7 @@ let write_bytes =
   fun ?(off = 0) ?len a k t -> write k ~blit ~length ~off ?len a t
 
 let write_bigstring =
-  let length = Bigarray.Array1.dim in
+  let length = Bigarray_compat.Array1.dim in
   let blit = bigarray_blit in
   fun ?(off = 0) ?len a k t -> write k ~blit ~length ~off ?len a t
 

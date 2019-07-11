@@ -117,7 +117,7 @@ let while1 predicate =
         else raise (Fail "while1") ) }
 
 let for_all predicate b =
-  let l = Bigarray.Array1.dim b in
+  let l = Bigarray_compat.Array1.dim b in
   try
     for i = 0 to l - 1 do
       if not (predicate b.{i}) then raise Break
@@ -134,7 +134,7 @@ let bigstring_while0 predicate =
 let bigstring_while1 predicate =
   { run=
       (fun k e v ->
-        if Bigarray.Array1.dim v > 0 && for_all predicate v then
+        if Bigarray_compat.Array1.dim v > 0 && for_all predicate v then
           Lole.write_bigstring v k e
         else raise (Fail "bigstring_while1") ) }
 
