@@ -27,5 +27,6 @@ depends: [
   "fmt"
   "ke" {>= "0.3"}
   "bigstringaf" {>= "0.5.0"}
+  "bigarray-compat"
   "alcotest" {with-test}
 ]
