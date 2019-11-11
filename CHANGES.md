@@ -1,3 +1,8 @@
+### v0.4 2019-11-11 Paris (France)
+
+- Move to `bigarray-compat` to be compatible with > MirageOS 3.6 (#19, @dinosaure, @TheLortex)
+- Add `bigstringaf` as a dependency (#18, @andreas, @dinosaure)
+
 ### v0.3 2019-05-01 Paris (France)
 
 - Fix OPAM file about how to ask to `dune` to build `encore` (@kit-ty-kate)
