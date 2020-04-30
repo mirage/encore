@@ -99,7 +99,7 @@ let parser =
    fun name (module Combinator) value sentinel s ->
     let of_string s =
       let module Dec = Combinator.Make (Proxy_decoder.Impl) in
-      match Angstrom.parse_string Dec.p s with
+      match Angstrom.parse_string ~consume:Prefix Dec.p s with
       | Ok v -> v
       | Error err -> invalid_arg err
     in
@@ -114,7 +114,7 @@ let parser =
    fun name (module Combinator) s ->
     let of_string s =
       let module Dec = Combinator.Make (Proxy_decoder.Impl) in
-      match Angstrom.parse_string Dec.p s with
+      match Angstrom.parse_string ~consume:Prefix Dec.p s with
       | Ok v -> v
       | Error err -> invalid_arg err
     in
@@ -404,7 +404,7 @@ let make : type sentinel.
   in
   let of_string s =
     let module Dec = Combinator.Make (Proxy_decoder.Impl) in
-    match Angstrom.parse_string Dec.p s with
+    match Angstrom.parse_string ~consume:Prefix Dec.p s with
     | Ok v -> v
     | Error err -> invalid_arg err
   in
