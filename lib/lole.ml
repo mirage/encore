@@ -1,19 +1,3 @@
-module Option = struct
-  let map_default default f = function Some v -> f v | None -> default
-end
-
-type ('a, 'b) bigarray = ('a, 'b, Bigarray_compat.c_layout) Bigarray_compat.Array1.t
-
-external is_a_sub :
-  ('a, 'b) bigarray -> int -> ('a, 'b) bigarray -> int -> bool
-  = "caml_encore_is_a_sub"
-  [@@noalloc]
-
-external physically_equal :
-  ('a, 'b) bigarray -> ('a, 'b) bigarray -> bool
-  = "caml_encore_bigarray_equal"
-  [@@noalloc]
-
 module type VALUE = sig
   type t
 
@@ -131,17 +115,6 @@ module Buffer = struct
     | String raw -> String.length raw
     | Bytes raw -> Bytes.length raw
 
-  let ppw_bigstring ppf b =
-    let len = Bigarray_compat.Array1.dim b in
-    for i = 0 to len - 1 do
-      Fmt.char ppf (Bigarray_compat.Array1.unsafe_get b i)
-    done
-
-  let ppw ppf = function
-    | Bigstring b -> ppw_bigstring ppf b
-    | String b -> Fmt.string ppf b
-    | Bytes b -> Fmt.string ppf (Bytes.unsafe_to_string b)
-
   let pp ppf = function
     | Bigstring b -> Fmt.pf ppf "(Bigstring %a)" (Fmt.hvbox pp_bigstring) b
     | Bytes b -> Fmt.pf ppf "(Bytes %a)" (Fmt.hvbox pp_bytes) b
@@ -180,7 +153,9 @@ module IOVec = struct
     match (a, b) with
     | {buffer= Buffer.Bytes a; _}, {buffer= Buffer.Bytes b; _} -> a == b
     | {buffer= Buffer.Bigstring a; _}, {buffer= Buffer.Bigstring b; _} ->
-        physically_equal a b
+      ( match Overlap.array1 a b with
+        | Some (len, 0, 0) -> Bigarray_compat.Array1.dim a = len && Bigarray_compat.Array1.dim b = len
+        | _ -> false )
     | _, _ -> false
 
   let merge a b =
@@ -196,14 +171,6 @@ module IOVec = struct
           Some {buffer= Buffer.Bigstring a'; off= a.off; len= a.len + b.len}
         else None
     | _, _ -> None
-
-  let ppw ppf = function
-    | {buffer= Buffer.Bigstring b; off; len} ->
-        Buffer.ppw_bigstring ppf (Bigarray_compat.Array1.sub b off len)
-    | {buffer= Buffer.String b; off; len} ->
-        Fmt.string ppf (String.sub b off len)
-    | {buffer= Buffer.Bytes b; off; len} ->
-        Fmt.string ppf (Bytes.sub_string b off len)
 
   let pp ppf {buffer; off; len} =
     Fmt.pf ppf "{ @[<hov>buffer = %a;@ off = %d;@ len = %d:@] }"
@@ -247,9 +214,10 @@ let from len bigarray =
 let check iovec {write; _} =
   match iovec with
   | {IOVec.buffer= Buffer.Bigstring x; _} ->
-      let buf = RBA.unsafe_bigarray write in
-      let len = Bigarray_compat.Array1.dim buf in
-      is_a_sub x (Bigarray_compat.Array1.dim x) buf len
+    let buf = RBA.unsafe_bigarray write in
+    ( match Overlap.array1 x buf with
+    | Some (_, _, _) -> true
+    | None -> false )
   | _ -> false
 
 let shift_buffers n t =
@@ -360,8 +328,6 @@ let schedule_bigstring =
   let buffer x = Buffer.Bigstring x in
   fun k t ?(off = 0) ?len v -> schedule k ~length ~buffer ~off ?len v t
 
-let schedule_flush f t = {t with flush= Ke.Fke.push t.flush (t.received, f)}
-
 external identity : 'a -> 'a = "%identity"
 
 let schedulev k l t =
@@ -424,11 +390,6 @@ let bigarray_blit_from_bytes src src_off dst dst_off len =
 
 let bigarray_blit src src_off dst dst_off len =
   Bigarray_compat.Array1.(blit (sub src src_off len) (sub dst dst_off len))
-
-let bigarray_blit_to_bytes src src_off dst dst_off len =
-  for i = 0 to len - 1 do
-    Bytes.set dst (dst_off + i) (Bigarray_compat.Array1.unsafe_get src (src_off + i))
-  done
 
 let write_string =
   let length = String.length in

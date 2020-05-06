@@ -182,7 +182,6 @@ module Exn = struct
     ; kd= E }
 
   let safe_exn f x = try f x with _ -> fail ()
-  let flip (a, b) = (b, a)
 
   let int : (string, int) texn =
     make_exn

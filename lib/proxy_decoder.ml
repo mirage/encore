@@ -61,7 +61,6 @@ module Impl : Meta.S with type 'a t = 'a Angstrom.t = struct
     >>= function
     | Some _ -> a >>| fun x -> Either.L x | None -> b >>| fun y -> Either.R y
 
-  let skip = Angstrom.skip_many
   let const s = Angstrom.(string s <?> s)
   let commit = Angstrom.commit
   let while0 = Angstrom.take_while

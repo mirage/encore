@@ -36,7 +36,6 @@ module Impl : Meta.S with type 'a t = 'a Encoder.t = struct
   let pure ~compare v = Encoder.pure ~compare v
   let take = Encoder.take
   let peek = Encoder.peek
-  let skip _ = pure ~compare:(fun () () -> 0) ()
   let const s = Encoder.const s
   let commit = Encoder.commit
   let while0 predicate = Encoder.while0 predicate
