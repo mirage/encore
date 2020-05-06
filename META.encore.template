@@ -1,4 +1,0 @@
-# DUNE_GEN
-
-xen_linkopts = "-l:butils/xen/libbutils_xen_stubs.a"
-freestanding_linkopts = "-l:butils/freestanding/libbutils_freestanding_stubs.a"

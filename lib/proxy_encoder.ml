@@ -30,20 +30,33 @@ module Impl : Meta.S with type 'a t = 'a Encoder.t = struct
     bijection.Bijection.of_ <$> pe
 
   let fix = Encoder.fix
+
   let nop = Encoder.nop
+
   let any = Encoder.char
+
   let fail err = Encoder.fail err
+
   let pure ~compare v = Encoder.pure ~compare v
+
   let take = Encoder.take
+
   let peek = Encoder.peek
-  let skip _ = pure ~compare:(fun () () -> 0) ()
+
   let const s = Encoder.const s
+
   let commit = Encoder.commit
+
   let while0 predicate = Encoder.while0 predicate
+
   let while1 predicate = Encoder.while1 predicate
+
   let bigstring_while0 predicate = Encoder.bigstring_while0 predicate
+
   let bigstring_while1 predicate = Encoder.bigstring_while1 predicate
+
   let buffer = Encoder.buffer
+
   let bigstring_buffer = Encoder.bigstring_buffer
 
   module Option = struct
