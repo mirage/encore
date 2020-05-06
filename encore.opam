@@ -25,8 +25,9 @@ depends: [
   "dune"
   "angstrom" {>= "0.14.0"}
   "fmt"
-  "ke" {>= "0.3"}
+  "ke" {>= "0.4"}
   "bigstringaf" {>= "0.5.0"}
   "bigarray-compat"
+  "bigarray-overlap"
   "alcotest" {with-test}
 ]
