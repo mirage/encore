@@ -28,6 +28,6 @@ depends: [
   "ke" {>= "0.4"}
   "bigstringaf" {>= "0.5.0"}
   "bigarray-compat"
-  "bigarray-overlap"
+  "bigarray-overlap" {>= "0.2.0"}
   "alcotest" {with-test}
 ]
