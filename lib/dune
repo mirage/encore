@@ -2,4 +2,4 @@
  (name encore)
  (public_name encore)
  (modules either bij lavoisier encore)
- (libraries digestif.c fmt bigstringaf angstrom))
+ (libraries fmt bigstringaf angstrom))
