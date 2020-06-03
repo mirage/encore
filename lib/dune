@@ -1,4 +1,5 @@
 (library
- (name Encore)
+ (name encore)
  (public_name encore)
- (libraries bigarray-overlap ke angstrom fmt bigstringaf bigarray-compat))
+ (modules either bij lavoisier encore)
+ (libraries fmt bigstringaf angstrom))
