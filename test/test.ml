@@ -422,6 +422,11 @@ let combinator =
         Syntax.(sequence [ any; any; any ])
         Alcotest.(list char)
         [ 'b'; 'a'; 'r' ] "bar";
+      make_test "fooz | bar"
+        Syntax.(((Bij.string "fooz" <$> const "fooz") <*> fail "fail")
+                <|> ((Bij.string "bar" <$> const "bar") <*> commit))
+        Alcotest.(pair unit unit)
+        ((), ()) "bar"
     ]
 
 let () =

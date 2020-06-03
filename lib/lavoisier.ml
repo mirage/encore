@@ -94,10 +94,14 @@ let pure ~compare v =
 
 let choose p q =
   { run= fun k e v ->
+        let pos = e.pos in
         try e.stk <- succ e.stk ; p.run (fun e -> e.stk <- pred e.stk ; k e) e v
         with
         | Flush -> Fail
-        | Fail -> e.stk <- pred e.stk ; q.run k e v }
+        | Fail ->
+          e.stk <- pred e.stk
+        ; e.pos <- pos 
+        ; q.run k e v }
 
 let string_for_all f x =
   let rec go a i =
