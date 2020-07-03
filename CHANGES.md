@@ -1,7 +1,14 @@
+### v0.6 2020-07-03 Paris (France)
+
+__breaking changes__
+- Defunctorize the core of the library (#24)
+- Improve the core with `ocaml-git` (#26)
+- Add documentation (#26)
+
 ### v0.5 2020-06-29 Paris (France)
 
 - Move to `bigarray-overlap` to be compatible with > MirageOS 3.6 and `js_of_ocaml` (#23)
-- Update to `angstron.0.14.0` (#22)
+- Update to `angstron.0.14.0` (@sternenseemann, #22)
 
 ### v0.4 2019-11-11 Paris (France)
 
