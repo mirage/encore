@@ -28,3 +28,7 @@ depends: [
   "bigstringaf" {>= "0.5.0"}
   "alcotest" {with-test}
 ]
+
+conflicts: [
+  "git" {<= "2.1.3"}
+]
