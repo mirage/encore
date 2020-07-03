@@ -46,6 +46,8 @@
 module Bij : sig
   type ('a, 'b) t
 
+  exception Bijection
+
   val v : fwd:('a -> 'b) -> bwd:('b -> 'a) -> ('a, 'b) t
 
   val bwd : ('a, 'b) t -> 'b -> 'a
@@ -56,7 +58,7 @@ module Bij : sig
 
   val product : ('u, 'v) t -> ('x, 'y) t -> ('u * 'x, 'v * 'y) t
 
-  val compose : ('a, 'a) t -> ('a, 'a) t -> ('a, 'a) t
+  val compose : ('a, 'b) t -> ('b, 'c) t -> ('a, 'c) t
 
   val commute : ('a * 'b, 'b * 'a) t
 
@@ -71,9 +73,19 @@ module Bij : sig
   val string : string -> (string, unit) t
 
   val some : ('a, 'a option) t
+
+  val obj3 : (('a * 'b) * 'c, 'a * 'b * 'c) t
+
+  val obj4 : ((('a * 'b) * 'c) * 'd, 'a * 'b * 'c * 'd) t
+
+  val obj5 : (((('a * 'b) * 'c) * 'd) * 'e, 'a * 'b * 'c * 'd * 'e) t
+
+  val obj6 :
+    ((((('a * 'b) * 'c) * 'd) * 'e) * 'f, 'a * 'b * 'c * 'd * 'e * 'f) t
 end
 
 module Lavoisier = Lavoisier
+module Either = Either
 
 type 'a t
 

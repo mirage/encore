@@ -1,4 +1,5 @@
 module Lavoisier = Lavoisier
+module Either = Either
 module Bij = Bij
 
 let always x _ = x
@@ -74,7 +75,7 @@ let rec to_angstrom : type a. a t -> a Angstrom.t = function
       Angstrom.(
         take a >>= fun v ->
         if string_for_all p v
-        then take_while_with_max ~max:b p >>= fun w -> return (v ^ w)
+        then take_while_with_max ~max:(b - a) p >>= fun w -> return (v ^ w)
         else fail "Invalid payload")
   | Payload (p, a, Infinite) ->
       Angstrom.(

@@ -18,7 +18,7 @@ let product u v =
     of_ = (fun (a, b) -> (u.of_ a, v.of_ b));
   }
 
-let compose u v = { to_ = u.to_ <.> v.to_; of_ = u.of_ <.> v.of_ }
+let compose u v = { to_ = v.to_ <.> u.to_; of_ = u.of_ <.> v.of_ }
 
 let commute = { to_ = (fun (a, b) -> (b, a)); of_ = (fun (b, a) -> (a, b)) }
 
@@ -29,12 +29,7 @@ exception Bijection
 let cons =
   {
     to_ = (fun (x, r) -> x :: r);
-    of_ =
-      (function
-      | x :: r -> (x, r)
-      | [] ->
-          Fmt.epr "GOT AN EMPTY LIST.\n%!" ;
-          raise Bijection);
+    of_ = (function x :: r -> (x, r) | [] -> raise Bijection);
   }
 
 let char chr =
@@ -59,4 +54,25 @@ let some =
   {
     to_ = (fun x -> Some x);
     of_ = (function Some x -> x | None -> raise Bijection);
+  }
+
+let obj3 =
+  { to_ = (fun ((x, y), z) -> (x, y, z)); of_ = (fun (x, y, z) -> ((x, y), z)) }
+
+let obj4 =
+  {
+    to_ = (fun (((w, x), y), z) -> (w, x, y, z));
+    of_ = (fun (w, x, y, z) -> (((w, x), y), z));
+  }
+
+let obj5 =
+  {
+    to_ = (fun ((((v, w), x), y), z) -> (v, w, x, y, z));
+    of_ = (fun (v, w, x, y, z) -> ((((v, w), x), y), z));
+  }
+
+let obj6 =
+  {
+    to_ = (fun (((((u, v), w), x), y), z) -> (u, v, w, x, y, z));
+    of_ = (fun (u, v, w, x, y, z) -> (((((u, v), w), x), y), z));
   }

@@ -13,7 +13,7 @@ type -'a t
 
 val emit : 'a -> 'a t -> state
 
-val emit_string : 'a -> 'a t -> string
+val emit_string : ?chunk:int -> 'a -> 'a t -> string
 
 val char : char t
 
