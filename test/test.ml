@@ -330,6 +330,14 @@ let combinator =
           <|> (Bij.string "bar" <$> const "bar" <*> commit))
         Alcotest.(pair unit unit)
         ((), ()) "bar";
+      make_test "bar | fooz"
+        Syntax.(
+          Bij.string "bar"
+          <$> const "bar"
+          <*> commit
+          <|> (Bij.string "fooz" <$> const "fooz" <*> fail "fail"))
+        Alcotest.(pair unit unit)
+        ((), ()) "bar";
     ] in
   List.concat
     [

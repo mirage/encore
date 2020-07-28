@@ -43,7 +43,9 @@ let rec write_char chr k encoder =
     Bigstringaf.set encoder.buffer encoder.pos chr ;
     encoder.pos <- encoder.pos + 1 ;
     k encoder)
-  else flush (write_char chr k) encoder
+  else if Stack.length encoder.stack = 0
+  then flush (write_char chr k) encoder
+  else Fail
 
 let rec write_string str k encoder =
   let len = String.length str in
@@ -53,9 +55,11 @@ let rec write_string str k encoder =
       ~dst_off:encoder.pos ~len ;
     encoder.pos <- encoder.pos + len ;
     k encoder)
-  else flush (write_string str k) encoder
+  else if Stack.length encoder.stack = 0
+  then flush (write_string str k) encoder
+  else Fail
 
-type -'a t = { run : (encoder -> state) -> encoder -> 'a -> state } [@@unbox]
+type -'a t = { run : (encoder -> state) -> encoder -> 'a -> state; pure : bool }
 
 let finish encoder = flush (fun _ -> Done) encoder
 
@@ -81,32 +85,71 @@ let emit_string ?(chunk = 0x1000) value d =
     | Fail -> invalid_arg "emit_string" in
   go (emit value d)
 
-let char = { run = (fun k e v -> write_char v k e) }
+let char = { run = (fun k e v -> write_char v k e); pure = false }
 
 let string str =
-  { run = (fun k e v -> if v <> str then error e else write_string v k e) }
+  {
+    run = (fun k e v -> if v <> str then error e else write_string v k e);
+    pure = String.length str = 0;
+  }
 
 let pure ~compare v =
-  { run = (fun k e v' -> if compare v v' then k e else error e) }
+  { run = (fun k e v' -> if compare v v' then k e else error e); pure = true }
 
-let choose p q =
-  {
-    run =
-      (fun k e v ->
-        Stack.push e.pos e.stack ;
-        let go = function
-          | Partial _ -> assert false
-          | Done -> k e
-          | Fail ->
-              e.pos <- Stack.pop e.stack ;
-              q.run k e v in
-        go
-          (p.run
-             (fun e ->
-               let _ = Stack.pop e.stack in
-               Done)
-             e v));
-  }
+(* XXX(dinosaure): [choose p q = choose q p], even if we execute [q] before [p],
+   the result output must be the same ([choose] is associative). By this fact,
+   we can take the opportunity to optimize the encoding.
+
+   With:
+   {[
+     let rep1 p = fix @@ fun m -> Bij.cons <$> (p <*> (m <|> nil))
+   ]}
+
+   [m <|> nil] can be replaced by [nil <|> m]. Then, [nil] is a pure element
+   which does not write anything into the output. So we can compute it safely
+   and if it fails, we simply run [q].
+
+   This optimization helps us to avoid a large stack until we reach [nil]. *)
+
+let choose q p =
+  if p.pure
+  then
+    {
+      run =
+        (fun k e v ->
+          let rec go = function
+            | Partial { buffer; off; len; continue } ->
+                Partial
+                  {
+                    buffer;
+                    off;
+                    len;
+                    continue = (fun ~committed -> go (continue ~committed));
+                  }
+            | Done -> k e
+            | Fail -> q.run k e v in
+          go (p.run (fun _ -> Done) e v));
+      pure = q.pure;
+    }
+  else
+    {
+      run =
+        (fun k e v ->
+          Stack.push e.pos e.stack ;
+          let go = function
+            | Partial _ -> assert false
+            | Done -> k e
+            | Fail ->
+                e.pos <- Stack.pop e.stack ;
+                q.run k e v in
+          go
+            (p.run
+               (fun e ->
+                 let _ = Stack.pop e.stack in
+                 Done)
+               e v));
+      pure = false;
+    }
 
 let string_for_all f x =
   let rec go a i =
@@ -127,12 +170,14 @@ let put_while1 p =
         if String.length v > 0 && string_for_all p v
         then write_string v k e
         else error e);
+    pure = false;
   }
 
 let put_while0 p =
   {
     run =
       (fun k e v -> if string_for_all p v then write_string v k e else error e);
+    pure = false;
   }
 
 let put p n =
@@ -142,6 +187,7 @@ let put p n =
         if string_for_all p v && String.length v = n
         then write_string v k e
         else error e);
+    pure = false;
   }
 
 let at_least_put p n =
@@ -149,6 +195,7 @@ let at_least_put p n =
     run =
       (fun k e v ->
         if string_for_all_while n p v then write_string v k e else error e);
+    pure = false;
   }
 
 let range ~a ~b p =
@@ -162,6 +209,7 @@ let range ~a ~b p =
           incr y
         done ;
         if x && !y <= b then write_string v k e else error e);
+    pure = false;
   }
 
 let product a b =
@@ -170,23 +218,35 @@ let product a b =
       (fun k e (u, v) ->
         let k e = b.run k e v in
         a.run k e u);
+    pure = a.pure && b.pure;
   }
 
-let fail _err = { run = (fun _ e _ -> error e) }
+let fail _err = { run = (fun _ e _ -> error e); pure = true }
 
 let fix f =
   let rec d = lazy (f r)
-  and r = { run = (fun k e v -> Lazy.(force d).run k e v) } in
+  and r = { run = (fun k e v -> Lazy.(force d).run k e v); pure = false } in
   r
 
-let ( *> ) p r = { run = (fun k e v -> p.run (fun e -> r.run k e v) e ()) }
+let ( *> ) p r =
+  {
+    run = (fun k e v -> p.run (fun e -> r.run k e v) e ());
+    pure = p.pure && r.pure;
+  }
 
-let ( <* ) p r = { run = (fun k e v -> p.run (fun e -> r.run k e ()) e v) }
+let ( <* ) p r =
+  {
+    run = (fun k e v -> p.run (fun e -> r.run k e ()) e v);
+    pure = p.pure && r.pure;
+  }
 
 let map x f =
-  { run = (fun k e v -> try x.run k e (f v) with Bij.Bijection -> error e) }
+  {
+    run = (fun k e v -> try x.run k e (f v) with Bij.Bijection -> error e);
+    pure = x.pure;
+  }
 
-let commit = { run = (fun k e () -> flush k e) }
+let commit = { run = (fun k e () -> flush k e); pure = true }
 
 let peek a b =
   {
@@ -194,4 +254,5 @@ let peek a b =
       (fun k e -> function
         | Either.L x -> a.run k e x
         | Either.R y -> b.run k e y);
+    pure = a.pure && b.pure;
   }

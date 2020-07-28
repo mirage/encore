@@ -161,11 +161,11 @@ module Syntax = struct
 
   let none = Pure (( = ), None)
 
+  let commit = Commit
+
   let rep1 p = fix @@ fun m -> Bij.cons <$> (p <*> (m <|> nil))
 
   let rep0 p = rep1 p <|> nil
-
-  let commit = Commit
 
   let sep_by1 ~sep p = Bij.cons <$> (p <*> rep0 (sep *> p))
 
