@@ -17,8 +17,7 @@ let io_buffer_size = 65536
 
 let flush k0 encoder =
   if Stack.length encoder.stack > 0
-  then
-    if encoder.pos = Bigstringaf.length encoder.buffer then Fail else k0 encoder
+  then k0 encoder
   else if encoder.pos > 0
   then
     let rec k1 n =
@@ -38,7 +37,7 @@ let flush k0 encoder =
   else k0 encoder
 
 let rec write_char chr k encoder =
-  if encoder.pos + 1 < Bigstringaf.length encoder.buffer
+  if encoder.pos + 1 <= Bigstringaf.length encoder.buffer
   then (
     Bigstringaf.set encoder.buffer encoder.pos chr ;
     encoder.pos <- encoder.pos + 1 ;
@@ -49,7 +48,7 @@ let rec write_char chr k encoder =
 
 let rec write_string str k encoder =
   let len = String.length str in
-  if encoder.pos + len < Bigstringaf.length encoder.buffer
+  if encoder.pos + len <= Bigstringaf.length encoder.buffer
   then (
     Bigstringaf.blit_from_string str ~src_off:0 encoder.buffer
       ~dst_off:encoder.pos ~len ;
@@ -65,10 +64,10 @@ let finish encoder = flush (fun _ -> Done) encoder
 
 let error encoder = flush (fun _ -> Fail) encoder
 
-let emit value d =
+let emit ?(chunk= io_buffer_size) value d =
   let encoder =
     {
-      buffer = Bigstringaf.create io_buffer_size;
+      buffer = Bigstringaf.create chunk;
       stack = Stack.create ();
       pos = 0;
     } in
@@ -83,7 +82,8 @@ let emit_string ?(chunk = 0x1000) value d =
         go (continue ~committed:len)
     | Done -> Buffer.contents buf
     | Fail -> invalid_arg "emit_string" in
-  go (emit value d)
+  let chunk = if chunk > io_buffer_size then chunk else io_buffer_size in
+  go (emit ~chunk value d)
 
 let char = { run = (fun k e v -> write_char v k e); pure = false }
 

@@ -25,7 +25,7 @@ and partial = {
 type -'a t
 (** A serializer for values of type ['a]. *)
 
-val emit : 'a -> 'a t -> state
+val emit : ?chunk:int -> 'a -> 'a t -> state
 
 val emit_string : ?chunk:int -> 'a -> 'a t -> string
 (** [emit_string ?chunk v t] runs [t] with [v]. The serializer allocates an
