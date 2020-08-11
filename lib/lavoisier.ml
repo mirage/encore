@@ -1,62 +1,49 @@
 type state = Partial of partial | Done | Fail
 
 and partial = {
-  buffer : Bigstringaf.t;
+  buffer : string;
   off : int;
   len : int;
   continue : committed:int -> state;
 }
 
 type encoder = {
-  buffer : Bigstringaf.t;
-  mutable pos : int;
+  dequeue : Deke.t;
   stack : int Stack.t;
 }
 
-let io_buffer_size = 65536
-
 let flush k0 encoder =
-  if Stack.length encoder.stack > 0
+  if Stack.length encoder.stack > 0 || Deke.is_empty encoder.dequeue
   then k0 encoder
-  else if encoder.pos > 0
+  (* TODO(dinosaure): or
+   * [   not (Deke.is_empty encoder.dequeue
+   *  && Stack.length encoder.stack = 0] *)
+  else if not (Deke.is_empty encoder.dequeue)
   then
+    let str = ref (Deke.pop encoder.dequeue) in
     let rec k1 n =
-      if n < encoder.pos
+      if n < String.length !str
       then
         Partial
           {
-            buffer = encoder.buffer;
+            buffer = !str;
             off = n;
-            len = encoder.pos - n;
+            len = String.length !str - n;
             continue = (fun ~committed:m -> k1 (n + m));
           }
-      else (
-        encoder.pos <- 0 ;
-        k0 encoder) in
+      else match Deke.pop encoder.dequeue with
+        | str' -> str := str' ; k1 0
+        | exception Deke.Empty -> k0 encoder in
     k1 0
   else k0 encoder
 
-let rec write_char chr k encoder =
-  if encoder.pos + 1 <= Bigstringaf.length encoder.buffer
-  then (
-    Bigstringaf.set encoder.buffer encoder.pos chr ;
-    encoder.pos <- encoder.pos + 1 ;
-    k encoder)
-  else if Stack.length encoder.stack = 0
-  then flush (write_char chr k) encoder
-  else Fail
+let write_char chr k encoder =
+  Deke.push encoder.dequeue (String.make 1 chr) ;
+  k encoder
 
-let rec write_string str k encoder =
-  let len = String.length str in
-  if encoder.pos + len <= Bigstringaf.length encoder.buffer
-  then (
-    Bigstringaf.blit_from_string str ~src_off:0 encoder.buffer
-      ~dst_off:encoder.pos ~len ;
-    encoder.pos <- encoder.pos + len ;
-    k encoder)
-  else if Stack.length encoder.stack = 0
-  then flush (write_string str k) encoder
-  else Fail
+let write_string str k encoder =
+  Deke.push encoder.dequeue str ;
+  k encoder
 
 type -'a t = { run : (encoder -> state) -> encoder -> 'a -> state; pure : bool }
 
@@ -64,26 +51,23 @@ let finish encoder = flush (fun _ -> Done) encoder
 
 let error encoder = flush (fun _ -> Fail) encoder
 
-let emit ?(chunk= io_buffer_size) value d =
+let emit value d =
   let encoder =
     {
-      buffer = Bigstringaf.create chunk;
+      dequeue= Deke.create ();
       stack = Stack.create ();
-      pos = 0;
     } in
   d.run finish encoder value
 
 let emit_string ?(chunk = 0x1000) value d =
   let buf = Buffer.create chunk in
   let rec go = function
-    | Partial { buffer; off; len; continue } ->
-        let str = Bigstringaf.substring buffer ~off ~len in
-        Buffer.add_string buf str ;
+    | Partial { buffer= str; off; len; continue } ->
+        Buffer.add_substring buf str off len ;
         go (continue ~committed:len)
     | Done -> Buffer.contents buf
     | Fail -> invalid_arg "emit_string" in
-  let chunk = if chunk > io_buffer_size then chunk else io_buffer_size in
-  go (emit ~chunk value d)
+  go (emit value d)
 
 let char = { run = (fun k e v -> write_char v k e); pure = false }
 
@@ -111,7 +95,16 @@ let pure ~compare v =
 
    This optimization helps us to avoid a large stack until we reach [nil]. *)
 
-let choose q p =
+let rec rem dequeue weight =
+  if Deke.weight dequeue > weight
+  then match Deke.rem dequeue with
+    | _str ->
+      let remaining = Deke.weight dequeue - weight in
+      if remaining > 0 then rem dequeue weight
+      else if remaining < 0 then assert false ;
+    | exception Deke.Empty -> ()
+
+let choose p q =
   if p.pure
   then
     {
@@ -131,16 +124,34 @@ let choose q p =
           go (p.run (fun _ -> Done) e v));
       pure = q.pure;
     }
+  else if q.pure
+  then {
+      run =
+        (fun k e v ->
+          let rec go = function
+            | Partial { buffer; off; len; continue } ->
+                Partial
+                  {
+                    buffer;
+                    off;
+                    len;
+                    continue = (fun ~committed -> go (continue ~committed));
+                  }
+            | Done -> k e
+            | Fail -> p.run k e v in
+          go (q.run (fun _ -> Done) e v));
+      pure = p.pure;
+    }
   else
     {
       run =
         (fun k e v ->
-          Stack.push e.pos e.stack ;
+          Stack.push (Deke.weight e.dequeue) e.stack ;
           let go = function
             | Partial _ -> assert false
             | Done -> k e
             | Fail ->
-                e.pos <- Stack.pop e.stack ;
+                rem e.dequeue (Stack.pop e.stack) ;
                 q.run k e v in
           go
             (p.run

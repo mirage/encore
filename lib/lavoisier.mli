@@ -16,7 +16,7 @@
 type state = Partial of partial | Done | Fail
 
 and partial = {
-  buffer : Bigstringaf.t;
+  buffer : string;
   off : int;
   len : int;
   continue : committed:int -> state;
@@ -25,7 +25,7 @@ and partial = {
 type -'a t
 (** A serializer for values of type ['a]. *)
 
-val emit : ?chunk:int -> 'a -> 'a t -> state
+val emit : 'a -> 'a t -> state
 
 val emit_string : ?chunk:int -> 'a -> 'a t -> string
 (** [emit_string ?chunk v t] runs [t] with [v]. The serializer allocates an
