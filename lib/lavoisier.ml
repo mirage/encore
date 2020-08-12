@@ -7,17 +7,15 @@ and partial = {
   continue : committed:int -> state;
 }
 
-type encoder = {
-  dequeue : Deke.t;
-  stack : int Stack.t;
-}
+type encoder = { dequeue : Deke.t; stack : int Stack.t }
 
 let flush k0 encoder =
   if Stack.length encoder.stack > 0 || Deke.is_empty encoder.dequeue
-  then k0 encoder
-  (* TODO(dinosaure): or
-   * [   not (Deke.is_empty encoder.dequeue
-   *  && Stack.length encoder.stack = 0] *)
+  then
+    k0 encoder
+    (* TODO(dinosaure): or
+     * [   not (Deke.is_empty encoder.dequeue
+     *  && Stack.length encoder.stack = 0] *)
   else if not (Deke.is_empty encoder.dequeue)
   then
     let str = ref (Deke.pop encoder.dequeue) in
@@ -31,8 +29,11 @@ let flush k0 encoder =
             len = String.length !str - n;
             continue = (fun ~committed:m -> k1 (n + m));
           }
-      else match Deke.pop encoder.dequeue with
-        | str' -> str := str' ; k1 0
+      else
+        match Deke.pop encoder.dequeue with
+        | str' ->
+            str := str' ;
+            k1 0
         | exception Deke.Empty -> k0 encoder in
     k1 0
   else k0 encoder
@@ -52,17 +53,13 @@ let finish encoder = flush (fun _ -> Done) encoder
 let error encoder = flush (fun _ -> Fail) encoder
 
 let emit value d =
-  let encoder =
-    {
-      dequeue= Deke.create ();
-      stack = Stack.create ();
-    } in
+  let encoder = { dequeue = Deke.create (); stack = Stack.create () } in
   d.run finish encoder value
 
 let emit_string ?(chunk = 0x1000) value d =
   let buf = Buffer.create chunk in
   let rec go = function
-    | Partial { buffer= str; off; len; continue } ->
+    | Partial { buffer = str; off; len; continue } ->
         Buffer.add_substring buf str off len ;
         go (continue ~committed:len)
     | Done -> Buffer.contents buf
@@ -97,11 +94,14 @@ let pure ~compare v =
 
 let rec rem dequeue weight =
   if Deke.weight dequeue > weight
-  then match Deke.rem dequeue with
+  then
+    match Deke.rem dequeue with
     | _str ->
-      let remaining = Deke.weight dequeue - weight in
-      if remaining > 0 then rem dequeue weight
-      else if remaining < 0 then assert false ;
+        let remaining = Deke.weight dequeue - weight in
+        if remaining > 0
+        then rem dequeue weight
+        else if remaining < 0
+        then assert false
     | exception Deke.Empty -> ()
 
 let choose p q =
@@ -125,7 +125,8 @@ let choose p q =
       pure = q.pure;
     }
   else if q.pure
-  then {
+  then
+    {
       run =
         (fun k e v ->
           let rec go = function
