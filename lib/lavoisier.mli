@@ -16,7 +16,7 @@
 type state = Partial of partial | Done | Fail
 
 and partial = {
-  buffer : Bigstringaf.t;
+  buffer : string;
   off : int;
   len : int;
   continue : committed:int -> state;
