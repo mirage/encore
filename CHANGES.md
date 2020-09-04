@@ -1,3 +1,10 @@
+### v0.7 2020-09-04 Paris (France)
+
+- Add a pure label on some encoders to help the `choose` operator
+  to not grow the internal stack (#27, @dinosaure)
+- Use an unlimited internal buffer with a `dequeue` to encode an
+  object (#28, @dinosaure)
+
 ### v0.6 2020-07-03 Paris (France)
 
 __breaking changes__
