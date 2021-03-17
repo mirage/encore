@@ -186,7 +186,7 @@ module Syntax = struct
   let rec fold_right ~k f l a =
     match l with
     | [] -> k a
-    | x :: r -> (fold_right[@tailcall]) ~k:(fun r -> k (f x r)) f r a
+    | x :: r -> (fold_right [@tailcall]) ~k:(fun r -> k (f x r)) f r a
 
   let choice l = fold_right ~k:identity ( <|> ) l (fail "choice")
 
