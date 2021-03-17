@@ -157,9 +157,13 @@ module Syntax = struct
 
   let while0 p = Payload (p, 0, Infinite)
 
-  let nil = Pure ((fun l0 l1 -> match l0, l1 with [], [] -> true | _ -> false), [])
+  let nil =
+    Pure ((fun l0 l1 -> match (l0, l1) with [], [] -> true | _ -> false), [])
 
-  let none = Pure ((fun o0 o1 -> match o0, o1 with None, None -> true | _ -> false), None)
+  let none =
+    Pure
+      ( (fun o0 o1 -> match (o0, o1) with None, None -> true | _ -> false),
+        None )
 
   let commit = Commit
 

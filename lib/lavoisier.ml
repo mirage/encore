@@ -27,19 +27,20 @@ let flush k0 encoder =
             buffer = !str;
             off = n;
             len = String.length !str - n;
-            continue = (fun ~committed:m -> (k1[@tailcall]) (n + m));
+            continue = (fun ~committed:m -> (k1 [@tailcall]) (n + m));
           }
       else
         match Deke.pop encoder.dequeue with
         | str' ->
             str := str' ;
-            (k1[@tailcaill]) 0
+            (k1 [@tailcaill]) 0
         | exception Deke.Empty -> k0 encoder in
     k1 0
   else k0 encoder
 
 (* XXX(dinosaure): pre-allocate small strings. *)
-let ( <.> ) f g = fun x -> f (g x)
+let ( <.> ) f g x = f (g x)
+
 let _chr = Array.init 255 (String.make 1 <.> Char.unsafe_chr)
 
 let write_char chr k encoder =
@@ -65,7 +66,7 @@ let emit_string ?(chunk = 0x1000) value d =
   let rec go = function
     | Partial { buffer = str; off; len; continue } ->
         Buffer.add_substring buf str off len ;
-        (go[@tailcall]) (continue ~committed:len)
+        (go [@tailcall]) (continue ~committed:len)
     | Done -> Buffer.contents buf
     | Fail -> invalid_arg "emit_string" in
   go (emit value d)
@@ -103,7 +104,7 @@ let rec rem dequeue weight =
     | _str ->
         let remaining = Deke.weight dequeue - weight in
         if remaining > 0
-        then (rem[@tailcaill]) dequeue weight
+        then (rem [@tailcaill]) dequeue weight
         else if remaining < 0
         then assert false
     | exception Deke.Empty -> ()
@@ -121,7 +122,8 @@ let choose p q =
                     buffer;
                     off;
                     len;
-                    continue = (fun ~committed -> (go[@tailcall]) (continue ~committed));
+                    continue =
+                      (fun ~committed -> (go [@tailcall]) (continue ~committed));
                   }
             | Done -> k e
             | Fail -> q.run k e v in
@@ -140,7 +142,8 @@ let choose p q =
                     buffer;
                     off;
                     len;
-                    continue = (fun ~committed -> (go[@tailcall]) (continue ~committed));
+                    continue =
+                      (fun ~committed -> (go [@tailcall]) (continue ~committed));
                   }
             | Done -> k e
             | Fail -> p.run k e v in
@@ -169,13 +172,14 @@ let choose p q =
 
 let string_for_all f x =
   let rec go a i =
-  if i < String.length x then (go[@tailcall]) (f x.[i] && a) (succ i) else a in
+    if i < String.length x then (go [@tailcall]) (f x.[i] && a) (succ i) else a
+  in
   go true 0
 
 let string_for_all_while n f x =
   let rec go a i =
     if i < String.length x && i < n
-    then (go[@tailcall]) (f x.[i] && a) (succ i)
+    then (go [@tailcall]) (f x.[i] && a) (succ i)
     else a && i >= n in
   go true 0
 
