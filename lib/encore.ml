@@ -181,11 +181,18 @@ module Syntax = struct
 
   let fixed n = Payload (always true, n, Fixed n)
 
-  let choice l = List.fold_right ( <|> ) l (fail "choice")
+  let identity x = x
+
+  let rec fold_right ~k f l a =
+    match l with
+    | [] -> k a
+    | x :: r -> (fold_right[@tailcall]) ~k:(fun r -> k (f x r)) f r a
+
+  let choice l = fold_right ~k:identity ( <|> ) l (fail "choice")
 
   let sequence l =
     let fold x r = Bij.cons <$> (x <*> r) in
-    List.fold_right fold l nil
+    fold_right ~k:identity fold l nil
 
   let count n t =
     let rec make a = function 0 -> a | n -> make (t :: a) (pred n) in
