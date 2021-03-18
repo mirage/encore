@@ -1,3 +1,9 @@
+### v0.8 2021-03-17 Paris (France)
+
+- Upgrade to ocamlformat.0.17.0 (@dinosaure, #31)
+- Fix stack-overflow on large objects (@dinosaure, @zshipko, #31)
+- Remove conflict with `git.2.1.3` (@dinosaure, @kit-ty-kate, fd0ef8c)
+
 ### v0.7 2020-09-04 Paris (France)
 
 - Add a pure label on some encoders to help the `choose` operator
