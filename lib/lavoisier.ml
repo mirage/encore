@@ -41,7 +41,7 @@ let flush k0 encoder =
 (* XXX(dinosaure): pre-allocate small strings. *)
 let ( <.> ) f g x = f (g x)
 
-let _chr = Array.init 255 (String.make 1 <.> Char.unsafe_chr)
+let _chr = Array.init 256 (String.make 1 <.> Char.unsafe_chr)
 
 let write_char chr k encoder =
   Deke.push encoder.dequeue _chr.(Char.code chr) ;

@@ -178,7 +178,7 @@ module Syntax : sig
   val product : 'a t -> 'b t -> ('a * 'b) t
 
   val commit : unit t
-  (** [commit] prevents backtracking beyong the current position of the input,
+  (** [commit] prevents backtracking beyond the current position of the input,
       allowing the manager of the input buffer to reuse the preceding bytes for
       other purposes when the combinator is used as a parser.
 
