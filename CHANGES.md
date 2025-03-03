@@ -1,3 +1,7 @@
+### v0.8.1 2024-03-03 Paris (France)
+
+- Correctly handle the `0xff` character on the encoder side (@yomimono, #33)
+
 ### v0.8 2021-03-17 Paris (France)
 
 - Upgrade to ocamlformat.0.17.0 (@dinosaure, #31)
